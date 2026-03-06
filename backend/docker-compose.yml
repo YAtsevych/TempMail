@@ -1,11 +1,23 @@
-version: "3"
 services:
   db:
     image: postgres:15
+    container_name: tempmail_postgres
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER} # берёт из .env → batman
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # берёт из .env → supersecret123
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: tempmail
+      POSTGRES_PASSWORD: tempmail123
+      POSTGRES_DB: tempmail_db
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: tempmail_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
