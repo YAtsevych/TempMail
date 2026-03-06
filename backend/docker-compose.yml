@@ -4,9 +4,9 @@ services:
     container_name: tempmail_postgres
     restart: always
     environment:
-      POSTGRES_USER: tempmail
-      POSTGRES_PASSWORD: tempmail123
-      POSTGRES_DB: tempmail_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
