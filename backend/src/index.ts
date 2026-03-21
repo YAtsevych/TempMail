@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import path from "path";
 import pool from "./db";
 import redis from "./services/redisService";
-
+import inboxRouter from "./routes/inbox";
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
@@ -15,6 +15,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
+// ── Роуты ────────────────────────────────
+app.use("/inbox", inboxRouter);
 // ── Health Check ─────────────────────────
 app.get("/health", async (req: Request, res: Response) => {
   try {
