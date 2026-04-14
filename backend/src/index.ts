@@ -6,6 +6,7 @@ import path from "path";
 import pool from "./db";
 import redis from "./services/redisService";
 import inboxRouter from "./routes/inbox";
+import emailsRouter from "./routes/emails";
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
@@ -39,7 +40,7 @@ app.get("/health", async (req: Request, res: Response) => {
     });
   }
 });
-
+app.use("/emails", emailsRouter);
 // ── 404 Handler ──────────────────────────
 app.use((req: Request, res: Response) => {
   res.status(404).json({
