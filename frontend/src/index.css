@@ -1,3 +1,97 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.dark {
+  --color-bg: lab(1.5459 -0.0968501 -1.40916);
+  --color-bg-card: lab(3.67543% -0.212148 -2.43837 / 0.5);
+  --color-border: lab(12.9391% -0.548735 -5.49436 / 0.5);
+  --color-text: lab(94.1962 -0.55328 -1.78922);
+  --color-primary: lab(57.0196% 18.2414 -77.6137);
+  --color-primary-hover: lab(57.0196% 18.2414 -77.6137 /0.7);
+  --color-muted-hover: lab(59.3909% -1.07732 -3.56233 / 0.1);
+}
+.light {
+  --color-bg: lab(100% 0 0);
+  --color-bg-card: lab(100% 0 0);
+  --color-border: lab(89.5562% -0.552863 -1.78905 / 0.5);
+  --color-text: black;
+  --color-primary: lab(44.3363% 31.557 -88.0077);
+  --color-primary-hover: lab(57.0196% 18.2414 -77.6137 / 0.95);
+}
+.textGray {
+  --color-text: lab(59.3909 -1.07732 -3.56233);
+}
+@media (min-width: 768px) {
+  .card-md {
+    border: 1px solid var(--color-border);
+    border-radius: 15px;
+    box-shadow:
+      0 1px 3px 0 #0000001a,
+      0 1px 2px -1px #0000001a;
+    background-color: var(--color-bg-card);
+  }
+}
+@media (max-width: 768px) {
+  .card-hidden {
+    display: none;
+  }
+  .card-displed {
+    display: flex;
+  }
+}
+.empty-mail-wave {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Анимируемый круг-волна */
+.empty-mail-wave::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  background: oklab(0.549988 -0.00261492 -0.24861 / 0.25);
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  animation: emptyWave 1.2s ease-out infinite;
+}
+
+/* Центральный круг (статичный) */
+.empty-mail-core {
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  background: oklab(0.549988 -0.00261492 -0.24861 / 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.empty-mail-core-inner {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  background: oklab(0.549988 -0.00261492 -0.24861 / 0.3);
+}
+
+@keyframes emptyWave {
+  0% {
+    width: 64px;
+    height: 64px;
+    opacity: 0.7;
+  }
+  100% {
+    width: 128px;
+    height: 128px;
+    opacity: 0;
+  }
+}

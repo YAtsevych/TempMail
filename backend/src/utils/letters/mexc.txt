@@ -1,0 +1,214 @@
+Delivered-To: yatsevychya05@gmail.com
+Received: by 2002:a05:6504:9c6:b0:2c3:e749:661f with SMTP id j6csp353822lts;
+        Tue, 16 Sep 2025 06:31:45 -0700 (PDT)
+X-Google-Smtp-Source: AGHT+IHP/dKGKTsgxxRUiaBW4Qw+OBGMQ4vRjBZ2O5PChUAYv14v/9j6LPJCydooNwcLU61UKkR0
+X-Received: by 2002:a05:6a21:9999:b0:249:824c:c621 with SMTP id adf61e73a8af0-260279fdc6emr21561755637.0.1758029504697;
+        Tue, 16 Sep 2025 06:31:44 -0700 (PDT)
+ARC-Seal: i=2; a=rsa-sha256; t=1758029504; cv=pass;
+        d=google.com; s=arc-20240605;
+        b=N2zBp3p9m8gtx/M1rftytZhOPE7x82+KRJ1Q8NJ6uJJoc5LyKQQFdM3Oi18L8YTyc4
+         NciOqWKg/d5bClqsi4bzy52xp+BEfCoPPIaSYxI2qtyQlWi2FZg4uc2RhqxbHBQ404GL
+         Y/18UIawwAX5O+SqtSLmXIGWM9wKGOaXkJZYp1GY5YGHz5QF4Qh+auwo1BtR4uqqXxxS
+         +ja6IV5c5ZPLCLmORAu8TdA5fHvQGQ//UrrudIGS9Fm3XmF1ntCT6GagXimDjDr3soqL
+         aGxdMtNcrG2Kwj/INVqpExLoQ3BjcrKT8G+nl3BMjmXMPlH1ODXcdUrdswjcTvMaY4um
+         aaMA==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=mime-version:msip_labels:content-language:accept-language
+         :message-id:date:thread-index:thread-topic:subject:to:from
+         :dkim-signature;
+        bh=ocW5MQ1hOlz8mPAh8MKsoqWLwgpSQZxEnQwP8eCTjb4=;
+        fh=FLAaDjqHe1WdPRJjJNr0VaqSVVnqOnjRGokaMeDouMk=;
+        b=dv4pkcaC+MldJKrJfbgSMwgimcPpkmgiLZYHREmrnOl3cCVDeS1g6rFaIcBpaOFZom
+         ah0YXdkdMl8esrLZUJa0huEzvWE5I5N5KD8tpbOUl+hBW3CXyB6h1nRC8qy7YVD9kIAM
+         t7NYKFtqgPR4hmrIcBuYiVSyKx34AVLr4pj4/lF+sir89CFdzt/3qUAoiHDzvOO/YLaZ
+         0w6+SG3mSI2E4bOoFcUoOqEsYK/sIU7QGHbAA5SRV1HpzVU+Glbzbj+e9qzHJ4fLlrbd
+         5mg6NYshR01NCy7vAxJG5lr9Jvy6VT/HrdKnkj+u412DuGF7Mu5Wq2OlNMO3VrE1m7SB
+         6jzg==;
+        dara=google.com
+ARC-Authentication-Results: i=2; mx.google.com;
+       dkim=pass header.i=@univuab.onmicrosoft.com header.s=selector2-univuab-onmicrosoft-com header.b=E7E+kThw;
+       arc=pass (i=1 spf=pass spfdomain=uab.ro dkim=pass dkdomain=uab.ro dmarc=pass fromdomain=uab.ro);
+       spf=pass (google.com: domain of relint@uab.ro designates 2a01:111:f403:c200::3 as permitted sender) smtp.mailfrom=relint@uab.ro
+Return-Path: <relint@uab.ro>
+Received: from DU2PR03CU002.outbound.protection.outlook.com (mail-northeuropeazlp170110003.outbound.protection.outlook.com. [2a01:111:f403:c200::3])
+        by mx.google.com with ESMTPS id d2e1a72fcca58-77607d09364si9497068b3a.808.2025.09.16.06.31.43
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 16 Sep 2025 06:31:44 -0700 (PDT)
+Received-SPF: pass (google.com: domain of relint@uab.ro designates 2a01:111:f403:c200::3 as permitted sender) client-ip=2a01:111:f403:c200::3;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@univuab.onmicrosoft.com header.s=selector2-univuab-onmicrosoft-com header.b=E7E+kThw;
+       arc=pass (i=1 spf=pass spfdomain=uab.ro dkim=pass dkdomain=uab.ro dmarc=pass fromdomain=uab.ro);
+       spf=pass (google.com: domain of relint@uab.ro designates 2a01:111:f403:c200::3 as permitted sender) smtp.mailfrom=relint@uab.ro
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none; b=NgtNh6T52IO5F6OH13lSY4UA/6qmILTL1ozaOBUjuO/T1lfkRyXhJXBL1VwJLNZ7APplJ7ZRozDwjJLLex3WN7wgKjB0/ptsq+sTaB6Plys1yFcXBHABYAoMBPDuEa8d1cReDGJc8SOjZjADExmzqmsWe63BAphTo06+dzqlgD3pCfHWbNtUhIAhQyeAhdQUJOd1gulJOOdZtqbGK4AsTwZrEakRj6fhYW8/sCP5Z1sjSNFG1WkWSHG1x7AaI9ZliMViLhtutIk4AVu5vLJMLgD5LMzBxOwTt6crcM+uXGBkx8kgTbWE7ZtXxcFz64HvNO1QhFthXgPZb+maeVRUQg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com; s=arcselector10001; h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1; bh=ocW5MQ1hOlz8mPAh8MKsoqWLwgpSQZxEnQwP8eCTjb4=; b=Ix5j4z1nS0pR1jm/CnmuQlKq2jM+sX5PAF2LBGByotSJdQsy5kc+sP6f5X4/3KWU2+x2roJ1202WHNq2EYNNT1kIzFz2tln+lyoJdo5SJnK9TBR+82saCYd2oWne2OzvUsbj4GQGXqs9v+MQOxPQhyjz+4Yu93P9Xtch6HyT1+X9KXziLUEkVu6z3/07bExJNpJLLCspXbr4yuofMwAee0NDBBoz7+krz1Vw0rOEURp65E5twBVW70i7wZqqrC6XyHo45v1ujXx1AiK9vTZ7k6PFphPyCdBKqJVxpX/Lb9eYuCaeHi5UEZiT1D1KutWZrFCuUFNFikIRKPFYFj7xFg==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass smtp.mailfrom=uab.ro; dmarc=pass action=none header.from=uab.ro; dkim=pass header.d=uab.ro; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=univuab.onmicrosoft.com; s=selector2-univuab-onmicrosoft-com; h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck; bh=ocW5MQ1hOlz8mPAh8MKsoqWLwgpSQZxEnQwP8eCTjb4=; b=E7E+kThwtvyiEEl1odBQMLEbcBwC/LbNR7XjmXHCJ19MIAWGbAFBCikUAPkyeHtPQeW5xys6eZKiI+UIU/wjnMZEuBve9TvVxniRXgJfIW3G+3MLngWiH0EPGvjXQ3il2QUA5nFnPYtd0eFTvIQQmA1YFTFG6/LyQIu8PNPTYOQ=
+Received: from DU0PR07MB8738.eurprd07.prod.outlook.com (2603:10a6:10:318::6) by AM4PR07MB10917.eurprd07.prod.outlook.com (2603:10a6:20b:6e4::6) with Microsoft SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.9115.18; Tue, 16 Sep 2025 13:31:41 +0000
+Received: from DU0PR07MB8738.eurprd07.prod.outlook.com ([fe80::c4e9:a9a6:a37b:4534]) by DU0PR07MB8738.eurprd07.prod.outlook.com ([fe80::c4e9:a9a6:a37b:4534%3]) with mapi id 15.20.9115.020; Tue, 16 Sep 2025 13:31:41 +0000
+From: Relatii Internationale <relint@uab.ro>
+To: Yaroslav Yatsevych <yatsevychya05@gmail.com>, "Соснов Дмитро" <sosnovdima32@gmail.com>
+Subject: Kind request
+Thread-Topic: Kind request
+Thread-Index: AQHcJw3+ryAJpzpskkaaUdVD0Ng9yA==
+Date: Tue, 16 Sep 2025 13:31:41 +0000
+Message-ID: <DU0PR07MB8738CECEEB25E02415AA4DD5B714A@DU0PR07MB8738.eurprd07.prod.outlook.com>
+Accept-Language: en-US, ro-RO
+Content-Language: en-US
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+msip_labels: 
+authentication-results: dkim=none (message not signed) header.d=none;dmarc=none action=none header.from=uab.ro;
+x-ms-publictraffictype: Email
+x-ms-traffictypediagnostic: DU0PR07MB8738:EE_|AM4PR07MB10917:EE_
+x-ms-office365-filtering-correlation-id: 196eac7c-e826-482a-2d19-08ddf5255f0b
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+x-microsoft-antispam: BCL:0;ARA:13230040|19092799006|376014|1800799024|366016|8096899003|38070700021|13003099007;
+x-microsoft-antispam-message-info: deyhVM0MyGdqm5bzHtJxrZdQhYMDjsHdm7KWjZei1m0v+XQ8z724ogu6uqRukBspngaBdZDryxxquOiPZ/hCCS8X+hJ9LanMnhwk+riy4phyjhkmiVgXNEL+4A9P9vzkYpScKBUYFwp7axwPNxZdD+spyB/Uo+f4T4SJLojAaSxoZqTxE63+PgyEJF9bYMrRcTIBn35C9dKATTmR74Tgu640rePm7VFFuid5ar2DIHBmh8xCHP7NFg7FBRrJWOL11/0rWOnJGKEaRHPnwvQdm9L18FR720Xpf2/K+KX+UdkhnrDgnRfLUl77KsjISiNzPe3U6r/ThB2f6YF8EPGfxjZAVt99r2cbWwdVvpvVHc1T4GGpHbMNnpWRYahbpWP6ah80nWg8C9KTpVvDouNsEHe7zPWD6YGR0EYUudCuMicGeKiRDsQQF64obVE53uvcLVgwUVuIo8Q1uHJWrLbauKQ8CdwSZU0pRPTGFCA0/w0Qm0FOO+jnlejEWtjd4hJKeDzUD/8xmwuZv+pUtNQrEglo6qn+Xsd9Lh0Bks+IVPsmSS2Ww6d5DSVJ0zz15IJXKi3qnAyKTlq9RYNFU8EKUW+QKc7IRgDznFaZ/pNC5jLLFtHp9xRS6dVN9nzcMm+BfNhIESCEdQ8kIH2HE5anqmpIeQlHubntpBywfg7mZYlUh/Z+zK7SOBRSPO1/IGfTpvZ5YFrtkH48ciUYN32IJE7LwyYEhwsyzS3Ye1ZbDOcn52N3W9Y8v7dr2wBm+0HP3Em6PYFG5G6l10xPJWuQQCZGKNffGowTw8BuXD9wmNflLBjSux52eKEdEzmEGRb+x4sZRG2eUJ1YZpxm0CQ6C24XgYs3/utQZjXyGEpC9CdONctmQLB/cGZN5PQRZ5G5hHmmKVt8R0eGtq6hRGEXu+5yZWC50RJ13OW1ILIdXWISgTIM5G5xmgvAb7XaMOfBUDf8p2gQsSNUWrkjPe0dVsgc3pJiMGnX2c0WeH2WNF1q+WUyyor/r28MNStKVVgtiEAwdwhLfb4M71YwrZmrizoCiaWoqqosoNJTaZmVzNypO2kbJ62GSIWMiP3mhTT83BAB/FBVEKEa5Wjl4z9222/or6p/tN4o8OIrbPfRLyv8UC9b4lM+se/tFbP2ZsfJEmOnPWvBZd2hfizRH11MnlIZ97F2WAI0PyScXWQgXSZhRadPVlxZ7l2IAhWxZhAxpJvADDQZpqMi+LLj5F1cT1qEY1t3OoTQ7qOVr6L3QKpYlrznTOhr8JqeziOIhCEUcTBRAJfWeUPUkqaB3ugITBiz5R5rrI+rWKZ8jGJETkZA6hYA+om2r0NCjy6Y+EVX/YKNXts0SaFJyZQqX5tmoYenXBN6diKTObVPSwRwA8QNIShM4wsOfFPXVbuOQnEX6TOpgEkuSs2kMaqkJlU19awhIH8Z97MPD+AHcup1C6A=
+x-forefront-antispam-report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:DU0PR07MB8738.eurprd07.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230040)(19092799006)(376014)(1800799024)(366016)(8096899003)(38070700021)(13003099007);DIR:OUT;SFP:1102;
+x-ms-exchange-antispam-messagedata-chunkcount: 1
+x-ms-exchange-antispam-messagedata-0: x3z0KKXiYjSNLoFWuq+iVh2L4lFYbiQzRNiIPC1JYsqSjlpRYiOApx9U3Fsve1tWKQpoHTD8L0AMVmbBQXmGuyCordT1YVylZwXW3oHL+Uf2CIS1K6bUL2K19qCE1IVKO1TuysJYvm2+i1sYPN98GQQ8mpCQbG+WfjW87D0jl93c+Xlf6N6SaVc31oEFjR9sHqrq549BIZ/CmIuMX7EJekdDrP4H00Q69oD6Nv6zjq90ZszUtZuXHFq713qWMf/odSmiCcYrGFhMzOv07J3IavjZQs5kKEHCVzyAT2BGV33e2ODn95cxp4XWrcPzZb09x8D6udr+w48vRR9G+ZqwfUL05Qb96wkLsHW4LeLaYPBR1Z8WsphIJMS32CbxyAGVMoUbJEDne6ALBC78Q3VblGQxCGqDY2+UKPGQKZSUsQ9tFMj9zd/+ddyEqq6Y+uPF7FB2+Mvu2Ls6DdYwKI3gP+Gtk23MaHj0tW1w2MVQsIzRy8bdTuZTRvFhQHc10j4lcYeaMauWFEHJ7F/cRzJOCEQR8S9dsM6qBhd6WANLWDAguc8k7LYyoGDCVup4gKxrochoo+OV79ibmo2xEbOL5zvSqAVYcuncJM+cvbGxIUq4KCCx1pFl4WhF3i1Q8a96Sxc6hJB4nKjjJRPNu/9g9d+c4k1r+GipRG2vqZsOz4Vz0p67F9/S4DKWRgunc9ivuhCgixk+eUy9nMR8N4jkMFqGinzTlMHrZZJpAQBlT0S/s0d9i9y0Ook25ZX/+cP7yh7c3au6Hp/tRSpJhtc+HGnDBa31JK3FBeb+r0ec8walGk8OwEPC2ukAkNtGUga6QOK2sSjOLTwfF+4A1nwoWTmxjNEZczfNUp9Xpfvv//eMc39UDKlK11jt71xcvThvtF5hGqj6SKMthjUbuzbDT+W4/X0wYZrqkXkp2VJ7hGuW5Y0Sk4Uvqs0+VZFBXW0p/p5ZFJf8vQLsDmbLO4MfzlwNGqVtZkKUr2yykFkEv2/+2RkYWuuGNqX56WXzji9JOxyCiZd6bV39POFGoE4aTv8WlclQ6HucbcFA3wXH0tUwWqbTVrWfRkByhg2xE1wKc5/0S+wUFi9XP4Jzeb7ve79rnH5hNKP0vHRpAHahIszroKHSr0ZXfqYstm7FPfLisJ3LmtBQXybJpiZl2QM+EPZ2c/iW7USd0fFgYTmI7CoFU9R9368YKjh3a8cw+dNaUOy2IeATOfg2bNrUYkD6C2oo1OmTlEaIiVSkFI9knRGR+fLLJyz7jEq8SodDXTQptGgGfu+V96glW/6QxNERrfNfGBcJI11GCXQIAuPLlClOo45+Ccu4gWuoksuj89YyVnMnLYcfzFqGzJpj335wdGm6f+90MdwiJ/o7BbdNKKXPueya+EHS8RgYeirMJpH8ulzr+OYUD5oFU6Y1C+QOkHTKDGNQoZrJaMifRFgcO+f/w30kiDDMIffqI0DVi0/LDKIw4tVlQ3aA9LDNjeFJ4LGBK4w9EscsW72OLMQwZa44NDDl7yInYbcurtWqIsLF2jamiPW3TLIXUVxaQ74KfK/qeSMYbShFnA4aysYBTXY=
+Content-Type: multipart/alternative; boundary="_000_DU0PR07MB8738CECEEB25E02415AA4DD5B714ADU0PR07MB8738eurp_"
+MIME-Version: 1.0
+X-OriginatorOrg: uab.ro
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-AuthSource: DU0PR07MB8738.eurprd07.prod.outlook.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 196eac7c-e826-482a-2d19-08ddf5255f0b
+X-MS-Exchange-CrossTenant-originalarrivaltime: 16 Sep 2025 13:31:41.3417 (UTC)
+X-MS-Exchange-CrossTenant-fromentityheader: Hosted
+X-MS-Exchange-CrossTenant-id: 071cfe14-2e5e-4fbf-8291-9ce3fe389b36
+X-MS-Exchange-CrossTenant-mailboxtype: HOSTED
+X-MS-Exchange-CrossTenant-userprincipalname: dhtd4Dh+9uSG63fP65v7iEQ5sqyaTqK6Ggesh14dQIIRTcz20tZ/jlDutPvoT2oL
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AM4PR07MB10917
+
+--_000_DU0PR07MB8738CECEEB25E02415AA4DD5B714ADU0PR07MB8738eurp_
+Content-Type: text/plain; charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
+
+Dear All,
+
+Please be informed that the accommodation time period starts on 24 Septembe=
+r until 26 September 2025.
+
+We strongly advise you to come during that period so that you can get a pla=
+ce in the Residence hall.
+Also, after that you can come and sign the contracts for studies, thank you=
+.
+
+
+Best Regards,
+Ms. Adina Petrescu
+International Relations Officer
+Centre for International Relations
+Erasmus, International Cooperation and Foreign Students Office
+"1 Decembrie 1918" University of Alba Iulia
+5 Gabriel Bethlen Street, 510009 Alba Iulia, Romania
+Phone: + 40 258 802814, + 40 258 806042
+relint@uab.ro;
+url:www.uab.ro<http://www.uab.ro/>
+
+
+--_000_DU0PR07MB8738CECEEB25E02415AA4DD5B714ADU0PR07MB8738eurp_
+Content-Type: text/html; charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
+
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dkoi8-r">
+<style type=3D"text/css" style=3D"display:none;"> P {margin-top:0;margin-bo=
+ttom:0;} </style>
+</head>
+<body dir=3D"ltr">
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+Dear All,</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+Please be informed that the accommodation time period starts on 24 Septembe=
+r until 26 September 2025.</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+We strongly advise you to come during that period so that you can get a pla=
+ce in the Residence hall.</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+Also, after that you can come and sign the contracts for studies, thank you=
+.</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+<br>
+</div>
+<div style=3D"text-align: left; text-indent: 0px; background-color: rgb(255=
+, 255, 255); margin: 0px; font-family: Calibri, Arial, Helvetica, sans-seri=
+f;" class=3D"elementToProof">
+<span style=3D"font-size: 15px; color: rgb(32, 31, 30); background-color: w=
+hite;">Best Regards,</span><span style=3D"font-size: 12pt; color: black;"><=
+br>
+</span><span style=3D"font-size: 15px; color: rgb(32, 31, 30); background-c=
+olor: white;">Ms. Adina Petrescu</span><span style=3D"font-size: 12pt; colo=
+r: black;"><br>
+</span><span style=3D"font-size: 15px; color: rgb(32, 31, 30); background-c=
+olor: white;">International Relations Officer</span><span style=3D"font-siz=
+e: 12pt; color: black;"><br>
+</span><span style=3D"font-size: 15px; color: rgb(32, 31, 30); background-c=
+olor: white;">Centre for International Relations</span></div>
+<div style=3D"text-align: left; text-indent: 0px; background-color: rgb(255=
+, 255, 255); margin: 0px;" class=3D"elementToProof">
+<span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif, serif, E=
+mojiFont; font-size: 12pt; color: black; background-color: white;">Erasmus,=
+ International Cooperation and Foreign Students Office</span><span style=3D=
+"font-family: Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color=
+: black;"><br>
+</span><span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif; f=
+ont-size: 15px; color: rgb(32, 31, 30); background-color: white;">&quot;1 D=
+ecembrie 1918&quot; University of Alba Iulia</span><span style=3D"font-fami=
+ly: Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: black;">=
+<br>
+</span><span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif; f=
+ont-size: 15px; color: rgb(32, 31, 30); background-color: white;">5 Gabriel=
+ Bethlen Street, 510009 Alba Iulia, Romania</span><span style=3D"font-famil=
+y: Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: black;"><=
+br>
+</span><span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif; f=
+ont-size: 15px; color: rgb(32, 31, 30); background-color: white;">Phone: + =
+40 258 802814, + 40 258 806042</span><span style=3D"font-family: Calibri, A=
+rial, Helvetica, sans-serif; font-size: 12pt; color: black;"><br>
+</span><span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif; f=
+ont-size: 15px; color: rgb(32, 31, 30); background-color: white;">relint@ua=
+b.ro;&nbsp;</span><span style=3D"font-family: Calibri, Arial, Helvetica, sa=
+ns-serif; font-size: 12pt; color: black;"><br>
+</span><span style=3D"font-family: Calibri, Arial, Helvetica, sans-serif; f=
+ont-size: 15px; color: rgb(32, 31, 30); background-color: white;">url:<a st=
+yle=3D"margin: 0px;" data-auth=3D"NotApplicable" data-linkindex=3D"0" rel=
+=3D"noopener noreferrer" title=3D"http://www.uab.ro/" class=3D"OWAAutoLink"=
+ id=3D"OWAb2d7879b-69fb-4e1b-ffa7-804265329fdc" target=3D"_blank" href=3D"h=
+ttp://www.uab.ro/">www.uab.ro</a></span></div>
+<div style=3D"font-family: Aptos, Aptos_EmbeddedFont, Aptos_MSFontService, =
+Calibri, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" clas=
+s=3D"elementToProof">
+<br>
+</div>
+</body>
+</html>
+
+--_000_DU0PR07MB8738CECEEB25E02415AA4DD5B714ADU0PR07MB8738eurp_--

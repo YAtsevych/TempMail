@@ -5,14 +5,14 @@ import {
   getInboxByToken,
   deleteInbox,
 } from "../services/inboxService";
-
+import simulateIncomingEmails from "../utils/simulateIncomingEmails";
 const router = Router();
 
 // POST /inbox/create — создать новый inbox
 router.post("/create", async (req: Request, res: Response) => {
   try {
     const inbox = await createInbox();
-
+    simulateIncomingEmails(inbox.address);
     res.status(201).json({
       success: true,
       data: {
@@ -26,7 +26,25 @@ router.post("/create", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to create inbox" });
   }
 });
+// router.post("/create", async (req: Request, res: Response) => {
+//   try {
+//     // 1. Создаем ящик в базе
+//     const newInbox = await createInbox();
 
+//     // 2. ЗАПУСКАЕМ СИМУЛЯЦИЮ ПИСЕМ ДЛЯ ЭТОГО АДРЕСА! 🚀
+//     // Мы не используем await, чтобы не задерживать ответ клиенту.
+//     // Функция будет работать в фоне.
+//     simulateIncomingEmails(newInbox.address);
+
+//     // 3. Отдаем адрес фронтенду
+//     res.json({
+//       success: true,
+//       data: newInbox,
+//     });
+//   } catch (error) {
+//     // ...
+//   }
+// });
 // GET /inbox/:address — получить inbox
 router.get("/:address", async (req: Request, res: Response) => {
   try {
