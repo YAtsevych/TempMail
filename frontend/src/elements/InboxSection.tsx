@@ -6,6 +6,9 @@ export type Letter = {
   body_text: string;
   created_at: string;
   is_read: boolean;
+  from_name?: string;
+  expires_at: string;
+  body_html: string;
 };
 type InboxProps = {
   theme: Theme;
@@ -19,7 +22,7 @@ function InboxSection({
   openedLetter,
   setOpenedLetter,
 }: InboxProps) {
-  const letterList = Array.isArray(letters?.data) ? letters.data : [];
+  const letterList = Array.isArray(letters) ? letters : [];
   console.log(letters);
 
   return (
@@ -293,10 +296,7 @@ const formatSenderName = (fromAddress: string) => {
   // 3. Делаем первую букву заглавной (Github)
   return namePart.charAt(0).toUpperCase() + namePart.slice(1);
 };
-export const formatEmailDate = (
-  dateString: string,
-  locale: string = "en-US",
-) => {
+const formatEmailDate = (dateString: string, locale: string = "en-US") => {
   const date = new Date(dateString);
 
   // Используем Intl.DateTimeFormat под капотом (через toLocaleString)

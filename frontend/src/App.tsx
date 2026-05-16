@@ -5,14 +5,7 @@ import InboxSection from "../src/elements/InboxSection";
 import { useEffect, useState, useRef } from "react";
 
 type Theme = "dark" | "light";
-export type Email = {
-  id: string;
-  from_address: string;
-  subject: string;
-  body_text: string;
-  created_at: string;
-  is_read: boolean;
-};
+
 export type Letter = {
   id: string;
   from_address: string;
@@ -20,6 +13,9 @@ export type Letter = {
   body_text: string;
   created_at: string;
   is_read: boolean;
+  from_name?: string;
+  expires_at: string;
+  body_html: string;
 };
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem("theme");
@@ -38,9 +34,9 @@ function App() {
   const [emailAddress, setEmailAddress] = useState<string | null>(null);
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   // 2. Храним список писем (по умолчанию пустой массив)
-  const [letters, setLetters] = useState<Email[]>([]);
+  const [letters, setLetters] = useState<Letter[]>([]);
   const [openedLetter, setOpenedLetter] = useState<Letter | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   //3. Создаем почту
   const createNewInbox = async (): Promise<string | null> => {
@@ -78,7 +74,7 @@ function App() {
       );
       const data = await response.json();
 
-      setLetters(data);
+      setLetters(data.data ?? []);
     } catch (error) {
       console.error("Ошибка при получении писем:", error);
     }
@@ -88,8 +84,6 @@ function App() {
   const handleDeleteInbox = async () => {
     if (!emailAddress) return;
     try {
-      setIsLoading(true);
-
       const deleteResponse = await fetch(
         `http://localhost:4000/inbox/${encodeURIComponent(emailAddress)}`,
         { method: "DELETE" },
@@ -113,8 +107,6 @@ function App() {
       }
     } catch (error) {
       console.error("Ошибка при удалении ящика:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
   ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,12 +118,14 @@ function App() {
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     createNewInbox();
   }, []);
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   //связь с сервером, получение писем, и обновление
   useEffect(() => {
     if (!emailAddress) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEmails(emailAddress);
 
     const intervalId = setInterval(() => {
