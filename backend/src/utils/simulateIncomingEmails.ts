@@ -4,7 +4,11 @@ import path from "path";
 import { simpleParser } from "mailparser";
 
 // Читаем СЫРОЙ текст письма (с заголовками и кракозябрами)
-const rawEmailPath = path.join(__dirname, "letters", "mexc.txt");
+
+const rawEmailPath = path.join(
+  process.cwd(),
+  "backend/src/utils/letters/mexc.txt",
+);
 const rawMexcEmail = fs.readFileSync(rawEmailPath, "utf-8");
 // Функция-генератор фейковых писем (7 штук)
 export const simulateIncomingEmails = (inboxAddress: string) => {
