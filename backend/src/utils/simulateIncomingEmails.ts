@@ -5,11 +5,11 @@ import { simpleParser } from "mailparser";
 
 // Читаем СЫРОЙ текст письма (с заголовками и кракозябрами)
 
-const rawEmailPath = path.join(
-  process.cwd(),
-  "backend/src/utils/letters/mexc.txt",
-);
-const rawMexcEmail = fs.readFileSync(rawEmailPath, "utf-8");
+// const rawEmailPath = path.join(
+//   process.cwd(),
+//   "backend/src/utils/letters/mexc.txt",
+// );
+// const rawMexcEmail = fs.readFileSync(rawEmailPath, "utf-8");
 // Функция-генератор фейковых писем (7 штук)
 export const simulateIncomingEmails = (inboxAddress: string) => {
   const emails = [
@@ -76,29 +76,29 @@ export const simulateIncomingEmails = (inboxAddress: string) => {
         "<p>Код подтверждения: <strong>118233</strong></p><p>Никому не сообщайте этот код. Срок действия: 5 минут.</p>",
     },
   ];
-  setTimeout(async () => {
-    try {
-      // БИБЛИОТЕКА ДЕЛАЕТ ВСЮ ГРЯЗНУЮ РАБОТУ:
-      // Расшифровывает =D0=9D в русские буквы, убирает =3D, режет заголовки
-      const parsedEmail = await simpleParser(rawMexcEmail);
+  // setTimeout(async () => {
+  //   try {
+  //     // БИБЛИОТЕКА ДЕЛАЕТ ВСЮ ГРЯЗНУЮ РАБОТУ:
+  //     // Расшифровывает =D0=9D в русские буквы, убирает =3D, режет заголовки
+  //     const parsedEmail = await simpleParser(rawMexcEmail);
 
-      // Сохраняем в твою БД уже ИДЕАЛЬНО ЧИСТЫЕ данные
-      await createEmail({
-        inbox_address: inboxAddress,
-        from_address:
-          parsedEmail.from?.value[0]?.address || "unknown@sender.com",
-        subject: parsedEmail.subject || "Без темы",
-        body_text: parsedEmail.text || "", // Парсер сам достанет текст
-        body_html: parsedEmail.html || "", // Парсер отдаст чистейший HTML!
-      });
+  //     // Сохраняем в твою БД уже ИДЕАЛЬНО ЧИСТЫЕ данные
+  //     await createEmail({
+  //       inbox_address: inboxAddress,
+  //       from_address:
+  //         parsedEmail.from?.value[0]?.address || "unknown@sender.com",
+  //       subject: parsedEmail.subject || "Без темы",
+  //       body_text: parsedEmail.text || "", // Парсер сам достанет текст
+  //       body_html: parsedEmail.html || "", // Парсер отдаст чистейший HTML!
+  //     });
 
-      console.log(
-        `[СИМУЛЯЦИЯ] Распарсено и сохранено реальное письмо MEXC для ${inboxAddress}`,
-      );
-    } catch (error) {
-      console.error("Ошибка при парсинге сырого письма:", error);
-    }
-  }, 10000);
+  //     console.log(
+  //       `[СИМУЛЯЦИЯ] Распарсено и сохранено реальное письмо MEXC для ${inboxAddress}`,
+  //     );
+  //   } catch (error) {
+  //     console.error("Ошибка при парсинге сырого письма:", error);
+  //   }
+  // }, 10000);
   emails.forEach((email, index) => {
     setTimeout(async () => {
       try {
