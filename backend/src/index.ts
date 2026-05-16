@@ -11,9 +11,14 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const allowed = [
+  "http://localhost:5173", // Vite
+  "http://localhost:3000", // React/Next (если нужно)
+  "https://tempmail-front.onrender.com",
+];
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: allowed }));
 app.use(express.json());
 
 // ── Роуты ────────────────────────────────

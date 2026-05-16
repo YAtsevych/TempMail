@@ -27,6 +27,7 @@ function getInitialTheme(): Theme {
 }
 
 function App() {
+  const API_BASE = import.meta.env.VITE_API_URL;
   const hasFetched = useRef(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +42,7 @@ function App() {
   //3. Создаем почту
   const createNewInbox = async (): Promise<string | null> => {
     try {
-      const res = await fetch("http://localhost:4000/inbox/create", {
+      const res = await fetch(`${API_BASE}/inbox/create`, {
         method: "POST",
       });
 
@@ -69,9 +70,7 @@ function App() {
   //4. Получаем письма
   const fetchEmails = async (address: string) => {
     try {
-      const response = await fetch(
-        `http://localhost:4000/emails?inbox=${address}`,
-      );
+      const response = await fetch(`${API_BASE}/emails?inbox=${address}`);
       const data = await response.json();
 
       setLetters(data.data ?? []);
@@ -85,7 +84,7 @@ function App() {
     if (!emailAddress) return;
     try {
       const deleteResponse = await fetch(
-        `http://localhost:4000/inbox/${encodeURIComponent(emailAddress)}`,
+        `${API_BASE}/inbox/${encodeURIComponent(emailAddress)}`,
         { method: "DELETE" },
       );
       const deleteResult = await deleteResponse.json();
