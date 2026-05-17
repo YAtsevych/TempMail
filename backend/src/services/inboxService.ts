@@ -104,7 +104,7 @@ const generateAddress = (): string => {
   const firstN = firstNames[Math.floor(Math.random() * firstNames.length)];
   const lastN = lastNames[Math.floor(Math.random() * lastNames.length)];
   const num = Math.floor(Math.random() * 9999);
-  return `${firstN}${lastN}${num}@tempmail.dev`;
+  return `${firstN}${lastN}${num}@tempmailbox.uk`;
 };
 
 // Создать новый inbox
