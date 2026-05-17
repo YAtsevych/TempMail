@@ -20,8 +20,8 @@ const allowed = [
 
 app.use(helmet());
 app.use(cors({ origin: allowed }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 // ── Роуты ────────────────────────────────
 app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
