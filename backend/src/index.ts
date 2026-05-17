@@ -21,7 +21,7 @@ const allowed = [
 app.use(helmet());
 app.use(cors({ origin: allowed }));
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: false }));
 // ── Роуты ────────────────────────────────
 app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
