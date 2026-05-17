@@ -9,11 +9,12 @@ const upload = multer(); // парсит multipart/form-data
 // Проверка подписи Mailgun (опционально, но правильно)
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
-  if (!key) return true; // если ключ не задан — пропускаем проверку
+  if (!key) return true;
 
-  const timestamp = req.body.timestamp;
-  const token = req.body.token;
-  const signature = req.body.signature;
+  const body = req.body || {};
+  const timestamp = body.timestamp;
+  const token = body.token;
+  const signature = body.signature;
 
   if (!timestamp || !token || !signature) return false;
 
@@ -26,6 +27,8 @@ const verifyMailgunSignature = (req: Request): boolean => {
 };
 
 router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
+  console.log("MAILGUN content-type:", req.headers["content-type"]);
+  console.log("MAILGUN body:", req.body);
   try {
     if (!verifyMailgunSignature(req)) {
       return res
