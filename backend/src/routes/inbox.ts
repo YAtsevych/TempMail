@@ -12,7 +12,7 @@ const router = Router();
 router.post("/create", async (req: Request, res: Response) => {
   try {
     const inbox = await createInbox();
-    simulateIncomingEmails(inbox.address);
+    // simulateIncomingEmails(inbox.address);
     res.status(201).json({
       success: true,
       data: {

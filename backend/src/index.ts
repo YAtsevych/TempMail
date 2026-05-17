@@ -7,6 +7,7 @@ import pool from "./db";
 import redis from "./services/redisService";
 import inboxRouter from "./routes/inbox";
 import emailsRouter from "./routes/emails";
+import mailgunRouter from "./routes/mailgun";
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
@@ -22,6 +23,7 @@ app.use(cors({ origin: allowed }));
 app.use(express.json());
 
 // ── Роуты ────────────────────────────────
+app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
 // ── Health Check ─────────────────────────
 app.get("/health", async (req: Request, res: Response) => {
