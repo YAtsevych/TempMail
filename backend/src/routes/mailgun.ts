@@ -1,13 +1,16 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import crypto from "crypto";
-import { createEmail } from "../services/emailService";
+import { emailQueue } from "../queues/emailQueue";
+import { classifyEmail, getPriority } from "../utils/classifier";
 
 const router = Router();
 const upload = multer();
 
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
+  console.log("MAILGUN_SIGNING_KEY present?", Boolean(key));
+  console.log("MAILGUN_SIGNING_KEY value:", key);
   if (!key) return true;
 
   const body = req.body || {};
@@ -26,8 +29,9 @@ const verifyMailgunSignature = (req: Request): boolean => {
 };
 
 router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
+  console.log("MAILGUN HIT /inbound", new Date().toISOString());
   console.log("MAILGUN content-type:", req.headers["content-type"]);
-  console.log("MAILGUN body:", req.body);
+  console.log("MAILGUN body keys:", Object.keys(req.body || {}));
   try {
     if (!verifyMailgunSignature(req)) {
       return res
@@ -40,6 +44,7 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
     const subject = req.body.subject || null;
     const body_text = req.body["body-plain"] || null;
     const body_html = req.body["body-html"] || null;
+    const attachments = req.body.attachments || [];
 
     if (!recipient || !sender) {
       return res
@@ -49,15 +54,33 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
 
     const recipient_normal = String(recipient).toLowerCase();
 
-    await createEmail({
-      inbox_address: recipient_normal,
-      from_address: sender,
+    // --- BullMQ: Классификация и постановка письма в очередь ---
+    const priorityClass = classifyEmail({
       subject,
       body_text,
       body_html,
+      attachments,
     });
+    console.log("MailGun priorityClass:" + priorityClass);
+    const job = await emailQueue.add(
+      "newEmail",
+      {
+        inbox_address: recipient_normal,
+        from_address: sender,
+        subject,
+        body_text,
+        body_html,
+        attachments,
+        received_at: new Date().toISOString(),
+      },
+      { priority: getPriority(priorityClass), removeOnComplete: true },
+    );
 
-    return res.json({ success: true });
+    console.log(
+      `[BullMQ] Job ${job.id} (${priorityClass}) added for ${recipient_normal}`,
+    );
+
+    return res.json({ success: true, jobId: job.id, priority: priorityClass });
   } catch (err) {
     console.error("Mailgun inbound error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
