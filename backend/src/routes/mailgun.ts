@@ -4,9 +4,8 @@ import crypto from "crypto";
 import { createEmail } from "../services/emailService";
 
 const router = Router();
-const upload = multer(); // парсит multipart/form-data
+const upload = multer();
 
-// Проверка подписи Mailgun (опционально, но правильно)
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
   if (!key) return true;
@@ -36,8 +35,8 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
         .json({ success: false, error: "Invalid signature" });
     }
 
-    const recipient = req.body.recipient; // куда пришло
-    const sender = req.body.sender; // от кого
+    const recipient = req.body.recipient;
+    const sender = req.body.sender;
     const subject = req.body.subject || null;
     const body_text = req.body["body-plain"] || null;
     const body_html = req.body["body-html"] || null;
@@ -48,8 +47,10 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
         .json({ success: false, error: "Missing recipient/sender" });
     }
 
+    const recipient_normal = String(recipient).toLowerCase();
+
     await createEmail({
-      inbox_address: recipient,
+      inbox_address: recipient_normal,
       from_address: sender,
       subject,
       body_text,

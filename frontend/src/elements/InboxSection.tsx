@@ -23,7 +23,6 @@ function InboxSection({
   setOpenedLetter,
 }: InboxProps) {
   const letterList = Array.isArray(letters) ? letters : [];
-  console.log(letters);
 
   return (
     <>

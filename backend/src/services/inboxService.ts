@@ -4,7 +4,6 @@ import { setWithTTL, get, del } from "./redisService";
 
 const INBOX_TTL = 60 * 60; // 1 час в секундах
 
-// Типы
 export interface Inbox {
   id: string;
   address: string;
@@ -12,9 +11,9 @@ export interface Inbox {
   created_at: Date;
   expires_at: Date;
   last_active: Date;
+  inbox_address: string;
 }
 
-// Генерация случайного email адреса
 const generateAddress = (): string => {
   const firstNames = [
     "James",
@@ -101,45 +100,34 @@ const generateAddress = (): string => {
     "Hill",
     "Flores",
   ];
+
   const firstN = firstNames[Math.floor(Math.random() * firstNames.length)];
   const lastN = lastNames[Math.floor(Math.random() * lastNames.length)];
   const num = Math.floor(Math.random() * 9999);
   return `${firstN}${lastN}${num}@tempmailbox.uk`;
 };
 
-// Создать новый inbox
 export const createInbox = async (): Promise<Inbox> => {
-  const address = generateAddress();
+  const inbox_address = generateAddress();
+  const address = inbox_address.toLowerCase();
   const token = uuidv4();
   const expiresAt = new Date(Date.now() + INBOX_TTL * 1000);
 
   const result = await pool.query<Inbox>(
-    `INSERT INTO inboxes (address, token, expires_at)
-     VALUES ($1, $2, $3)
+    `INSERT INTO inboxes (address, token, expires_at, inbox_address)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [address, token, expiresAt],
+    [address, token, expiresAt, inbox_address],
   );
 
   const inbox = result.rows[0];
 
-  // Кешируем в Redis
-  await setWithTTL(`inbox:${address}`, inbox, INBOX_TTL);
-
   return inbox;
 };
 
-// Получить inbox по адресу
 export const getInboxByAddress = async (
   address: string,
 ): Promise<Inbox | null> => {
-  // 1. Проверяем Redis
-  const cached = await get<Inbox>(`inbox:${address}`);
-  if (cached) {
-    console.log("⚡ Inbox from Redis cache");
-    return cached;
-  }
-
-  // 2. Берём из PostgreSQL
   const result = await pool.query<Inbox>(
     `SELECT * FROM inboxes WHERE address = $1 AND expires_at > NOW()`,
     [address],
@@ -149,13 +137,9 @@ export const getInboxByAddress = async (
 
   const inbox = result.rows[0];
 
-  // 3. Сохраняем в Redis
-  await setWithTTL(`inbox:${address}`, inbox, INBOX_TTL);
-
   return inbox;
 };
 
-// Получить inbox по токену
 export const getInboxByToken = async (token: string): Promise<Inbox | null> => {
   const result = await pool.query<Inbox>(
     `SELECT * FROM inboxes WHERE token = $1 AND expires_at > NOW()`,
@@ -166,8 +150,6 @@ export const getInboxByToken = async (token: string): Promise<Inbox | null> => {
   return result.rows[0];
 };
 
-// Удалить inbox
 export const deleteInbox = async (address: string): Promise<void> => {
   await pool.query(`DELETE FROM inboxes WHERE address = $1`, [address]);
-  await del(`inbox:${address}`);
 };

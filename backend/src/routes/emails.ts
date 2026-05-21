@@ -8,7 +8,7 @@ import {
 
 const router = Router();
 
-// POST /emails (эмуляция входящего письма)
+// POST /emails
 router.post("/", async (req: Request, res: Response) => {
   try {
     const { inbox_address, from_address, subject, body_html, body_text } =
@@ -26,7 +26,7 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     const email = await createEmail({
-      inbox_address,
+      inbox_address: inbox_address.toLowerCase(),
       from_address,
       subject,
       body_html,
@@ -54,7 +54,7 @@ router.get("/", async (req: Request, res: Response) => {
         .json({ success: false, error: "Query param inbox is required" });
     }
 
-    const emails = await listEmails(inbox);
+    const emails = await listEmails(inbox.toLowerCase());
     return res.json({ success: true, data: emails });
   } catch (error) {
     console.error("❌ List emails error:", error);
@@ -76,7 +76,7 @@ router.get("/code", async (req: Request, res: Response) => {
         .json({ success: false, error: "Query param inbox is required" });
     }
 
-    const code = await getLatestConfirmationCode(inbox);
+    const code = await getLatestConfirmationCode(inbox.toLowerCase());
     return res.json({ success: true, data: code });
   } catch (error) {
     console.error("❌ Get code error:", error);

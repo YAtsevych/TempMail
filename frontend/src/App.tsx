@@ -17,6 +17,7 @@ export type Letter = {
   expires_at: string;
   body_html: string;
 };
+
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem("theme");
   if (saved === "dark" || saved === "light") return saved;
@@ -30,16 +31,17 @@ function App() {
   const API_BASE = import.meta.env.VITE_API_URL;
   const hasFetched = useRef(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  // 1. Храним текущий email-адрес ящика
+
+  // lower-case адрес для логики
   const [emailAddress, setEmailAddress] = useState<string | null>(null);
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  // 2. Храним список писем (по умолчанию пустой массив)
+
+  // отображаемый адрес (оригинал)
+  const [displayAddress, setDisplayAddress] = useState<string | null>(null);
+
   const [letters, setLetters] = useState<Letter[]>([]);
   const [openedLetter, setOpenedLetter] = useState<Letter | null>(null);
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //3. Создаем почту
+  // Создаем почту
   const createNewInbox = async (): Promise<string | null> => {
     try {
       const res = await fetch(`${API_BASE}/inbox/create`, {
@@ -53,33 +55,38 @@ function App() {
         return null;
       }
 
-      const newEmail = data?.data?.address ?? null;
-      if (!newEmail) {
+      const newAddress = data?.data?.address ?? null; // lower-case
+      const newDisplay = data?.data?.inbox_address ?? null; // красивый
+
+      if (!newAddress) {
         console.error("No address in response:", data);
         return null;
       }
 
-      setEmailAddress(newEmail);
-      return newEmail;
+      setEmailAddress(newAddress);
+      setDisplayAddress(newDisplay);
+
+      return newAddress;
     } catch (e) {
       console.error("createNewInbox error:", e);
       return null;
     }
   };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //4. Получаем письма
+
+  // Получаем письма
   const fetchEmails = async (address: string) => {
     try {
       const response = await fetch(`${API_BASE}/emails?inbox=${address}`);
+      console.log(address);
       const data = await response.json();
-
+      console.log(data);
       setLetters(data.data ?? []);
     } catch (error) {
       console.error("Ошибка при получении писем:", error);
     }
   };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //5. УДаляем и создаем новую почту
+
+  // Удаляем и создаем новую почту
   const handleDeleteInbox = async () => {
     if (!emailAddress) return;
     try {
@@ -90,12 +97,11 @@ function App() {
       const deleteResult = await deleteResponse.json();
 
       if (deleteResult.success) {
-        console.log("delete success");
-        // 2. Очищаем интерфейс (чтобы старые письма не висели на экране)
         setLetters([]);
         setOpenedLetter(null);
         setEmailAddress(null);
-        // 3. Создаем новый ящик (вызываем твою уже готовую функцию)
+        setDisplayAddress(null);
+
         const createdEmail = await createNewInbox();
         if (!createdEmail) {
           console.error("Новый ящик не создался");
@@ -108,32 +114,34 @@ function App() {
       console.error("Ошибка при удалении ящика:", error);
     }
   };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
   const HandlefetchEmails = async () => {
     if (!emailAddress) return;
-    fetchEmails(emailAddress);
+    console.log("I have tried");
+    fetchEmails(emailAddress.toLowerCase());
   };
-  //связь с сервером получение почты
+
+  // связь с сервером получение почты
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     createNewInbox();
   }, []);
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //связь с сервером, получение писем, и обновление
+
+  // связь с сервером, получение писем, и обновление
   useEffect(() => {
     if (!emailAddress) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEmails(emailAddress);
 
     const intervalId = setInterval(() => {
-      fetchEmails(emailAddress);
-    }, 500000);
+      fetchEmails(emailAddress.toLowerCase());
+    }, 5000);
     return () => clearInterval(intervalId);
   }, [emailAddress]);
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //Тема, получение от браузера
+
+  // Тема, получение от браузера
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => {
@@ -142,7 +150,7 @@ function App() {
     media.addEventListener("change", handler);
     return () => media.removeEventListener("change", handler);
   }, []);
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
   useEffect(() => {
     localStorage.setItem("theme", theme);
   }, [theme]);
@@ -158,7 +166,7 @@ function App() {
           DeleteInbox={handleDeleteInbox}
         />
         <EmailSection
-          emailAddress={emailAddress}
+          emailAddress={displayAddress ?? emailAddress} // показываем красивый
           theme={theme}
           HandlefetchEmails={HandlefetchEmails}
         />
@@ -174,3 +182,4 @@ function App() {
 }
 
 export default App;
+// eslint-disable-next-line react-hooks/set-state-in-effect

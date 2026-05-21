@@ -12,11 +12,11 @@ const router = Router();
 router.post("/create", async (req: Request, res: Response) => {
   try {
     const inbox = await createInbox();
-    // simulateIncomingEmails(inbox.address);
     res.status(201).json({
       success: true,
       data: {
-        address: inbox.address,
+        address: inbox.address, // lower-case (логика)
+        inbox_address: inbox.inbox_address, // красивый (UI)
         token: inbox.token,
         expires_at: inbox.expires_at,
       },
@@ -26,25 +26,7 @@ router.post("/create", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to create inbox" });
   }
 });
-// router.post("/create", async (req: Request, res: Response) => {
-//   try {
-//     // 1. Создаем ящик в базе
-//     const newInbox = await createInbox();
 
-//     // 2. ЗАПУСКАЕМ СИМУЛЯЦИЮ ПИСЕМ ДЛЯ ЭТОГО АДРЕСА! 🚀
-//     // Мы не используем await, чтобы не задерживать ответ клиенту.
-//     // Функция будет работать в фоне.
-//     simulateIncomingEmails(newInbox.address);
-
-//     // 3. Отдаем адрес фронтенду
-//     res.json({
-//       success: true,
-//       data: newInbox,
-//     });
-//   } catch (error) {
-//     // ...
-//   }
-// });
 // GET /inbox/:address — получить inbox
 router.get("/:address", async (req: Request, res: Response) => {
   try {
@@ -63,6 +45,7 @@ router.get("/:address", async (req: Request, res: Response) => {
       success: true,
       data: {
         address: inbox.address,
+        inbox_address: inbox.inbox_address,
         expires_at: inbox.expires_at,
         last_active: inbox.last_active,
       },

@@ -1,0 +1,10 @@
+{
+  "name": "tempmail-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm:dev --prefix backend\" \"npm:dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
