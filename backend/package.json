@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "concurrently \"node dist/index.js\" \"node dist/queues/queueWorker.js\"",
     "dev": "nodemon --exec ts-node src/index.ts",
     "worker": "ts-node src/queues/queueWorker.ts",
     "worker:dev": "nodemon --exec ts-node src/queues/queueWorker.ts",
