@@ -2,6 +2,8 @@ import { Worker } from "bullmq";
 import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import { redisConnectionFromEnv } from "./emailQueue";
+import { emailQueue } from "./emailQueue";
 console.log("=== BullMQ WORKER STARTED ===");
 
 const worker = new Worker(
@@ -40,11 +42,7 @@ const worker = new Worker(
     );
   },
   {
-    connection: {
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: Number(process.env.REDIS_PORT) || 6379,
-      // password: process.env.REDIS_PASS,
-    },
+    connection: redisConnectionFromEnv(),
   },
 );
 

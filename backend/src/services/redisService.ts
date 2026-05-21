@@ -6,9 +6,10 @@ dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
-redis.on("connect", () => {
-  console.log("✅ Redis connected successfully to", process.env.REDIS_URL);
-});
+console.log(
+  "✅ Redis connected successfully to",
+  process.env.REDIS_URL ?? "redis://localhost:6379",
+);
 redis.on("ready", () => {
   console.log("✅ Redis READY 🟢");
 });
