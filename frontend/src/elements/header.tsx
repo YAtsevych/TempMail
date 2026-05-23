@@ -4,8 +4,9 @@ type HeaderProps = {
   theme: Theme;
   setTheme: React.Dispatch<React.SetStateAction<Theme>>;
   DeleteInbox: () => void;
+  wsConnected: boolean; // <-- НОВОЕ
 };
-function Header({ theme, setTheme, DeleteInbox }: HeaderProps) {
+function Header({ theme, setTheme, DeleteInbox, wsConnected }: HeaderProps) {
   const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
 
   useEffect(() => {
@@ -112,6 +113,19 @@ function Header({ theme, setTheme, DeleteInbox }: HeaderProps) {
                 </svg>
               </button>
             )}
+            <div className="flex items-center gap-1 mr-2">
+              <div
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  wsConnected ? "bg-green-500" : "bg-gray-400"
+                }`}
+                title={
+                  wsConnected ? "WebSocket: live" : "WebSocket: reconnecting"
+                }
+              />
+              <span className="text-xs textGray text-[var(--color-text)] hidden sm:block">
+                {wsConnected ? "live" : "polling"}
+              </span>
+            </div>
             {theme === "dark" ? (
               <button
                 onClick={() => {
