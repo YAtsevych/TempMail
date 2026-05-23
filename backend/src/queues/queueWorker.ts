@@ -1,36 +1,26 @@
-// backend/src/queues/queueWorker.ts
-// Изменения относительно оригинала:
-//   1. Импортирован io из index.ts
-//   2. После INSERT в БД — emit "NEW_EMAIL" в комнату mailbox:<address>
-//   3. Убраны дублирующиеся обработчики completed/failed
-//   4. Добавлены структурированные логи для Розділу 3 диплому
-
 import { Worker } from "bullmq";
 import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
-import { redisConnectionFromEnv } from "./emailQueue";
-import { getIo } from "../socket";
+import { redisConnectionFromEnv, emailQueue } from "./emailQueue";
+import { createPublisher, PUBSUB_CHANNEL } from "../socket";
+
 console.log("=== BullMQ WORKER STARTED ===");
 
-// Ленивый импорт io — избегаем circular dependency.
-// index.ts экспортирует io, но сам импортирует emailQueue.
-// Решение: получаем io в момент первого использования, не при старте.
-let _io: import("socket.io").Server | null = null;
+// Publisher живёт в процессе воркера
+const publisher = createPublisher();
 
 const worker = new Worker(
   "emailQueue",
   async (job) => {
-    const startTs = Date.now(); // для метрик обработки (Розділ 3)
+    const startTs = Date.now();
     const email = job.data;
 
-    // LOG формат для Розділу 3:
-    // [BullMQ][Worker] Job abc123 | priority=mice | from=test@ex.com | inbox=james@tempmailbox.uk
     console.log(
       `[BullMQ][Worker] Job ${job.id} | priority=${job.opts.priority === 2 ? "mice" : "elephant"} | ` +
         `from=${email.from_address} | inbox=${email.inbox_address}`,
     );
 
-    // ── Шаг 1: Сохраняем письмо в PostgreSQL ─────────────
+    // Шаг 1: сохраняем в PostgreSQL
     const emailId = uuidv4();
     await pool.query(
       `INSERT INTO emails
@@ -49,17 +39,12 @@ const worker = new Worker(
       ],
     );
 
-    // ── Шаг 2: Push по WebSocket → клиент видит письмо мгновенно ──
-    // Emit идёт в комнату "mailbox:<адрес>".
-    // Клиент подписался на неё через SUBSCRIBE_MAILBOX.
-    // Передаём только preview (без полного body) — экономим трафик.
-    const io = getIo();
+    // публикуем в Redis → index.ts получит и сделает io.emit
     const room = `mailbox:${email.inbox_address}`;
     const payload = {
       id: emailId,
       from_address: email.from_address,
       subject: email.subject || "(no subject)",
-      // preview: первые 200 символов body_text
       preview: (email.body_text || "").slice(0, 200),
       created_at: new Date().toISOString(),
       is_read: false,
@@ -67,19 +52,17 @@ const worker = new Worker(
       body_html: email.body_html || "",
       body_text: email.body_text || "",
     };
-    io.to(room).emit("NEW_EMAIL", payload);
 
-    // LOG для Розділу 3: время обработки — ключевая метрика NFR-02
+    await publisher.publish(PUBSUB_CHANNEL, JSON.stringify({ room, payload }));
+
     const processingMs = Date.now() - startTs;
     console.log(
       `[BullMQ][Worker] Job ${job.id} DONE | ` +
         `emailId=${emailId} | processingMs=${processingMs} | ` +
-        `wsRoom=${room} | status=emitted`,
+        `wsRoom=${room} | status=published_to_redis`,
     );
   },
-  {
-    connection: redisConnectionFromEnv(),
-  },
+  { connection: redisConnectionFromEnv() },
 );
 
 worker.on("completed", (job) => {
