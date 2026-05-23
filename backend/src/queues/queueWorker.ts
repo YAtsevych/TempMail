@@ -9,21 +9,13 @@ import { Worker } from "bullmq";
 import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
 import { redisConnectionFromEnv } from "./emailQueue";
-
+import { getIo } from "../socket";
 console.log("=== BullMQ WORKER STARTED ===");
 
 // Ленивый импорт io — избегаем circular dependency.
 // index.ts экспортирует io, но сам импортирует emailQueue.
 // Решение: получаем io в момент первого использования, не при старте.
 let _io: import("socket.io").Server | null = null;
-const getIo = async () => {
-  if (!_io) {
-    // Динамический импорт разрывает circular dependency
-    const { io } = await import("../index");
-    _io = io;
-  }
-  return _io;
-};
 
 const worker = new Worker(
   "emailQueue",
@@ -61,7 +53,7 @@ const worker = new Worker(
     // Emit идёт в комнату "mailbox:<адрес>".
     // Клиент подписался на неё через SUBSCRIBE_MAILBOX.
     // Передаём только preview (без полного body) — экономим трафик.
-    const io = await getIo();
+    const io = getIo();
     const room = `mailbox:${email.inbox_address}`;
     const payload = {
       id: emailId,

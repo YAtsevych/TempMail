@@ -18,7 +18,7 @@ import redis from "./services/redisService";
 import inboxRouter from "./routes/inbox";
 import emailsRouter from "./routes/emails";
 import mailgunRouter from "./routes/mailgun";
-
+import { initIo } from "./socket";
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
@@ -40,7 +40,7 @@ export const io = new Server(httpServer, {
   // Fallback на long-polling для сред без WS (некоторые хостинги)
   transports: ["websocket", "polling"],
 });
-
+initIo(io);
 // Клиент подписывается на обновления своего mailbox:
 //   emit("SUBSCRIBE_MAILBOX", "james123@tempmailbox.uk")
 //   → socket.join("mailbox:james123@tempmailbox.uk")
