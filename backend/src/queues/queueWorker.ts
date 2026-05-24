@@ -121,7 +121,7 @@ const worker = new Worker(
       `[worker] ✅ job=${job.id} | ${processingMs}ms | emailId=${emailId}`,
     );
   },
-  { connection: redisConnectionFromEnv() },
+  { connection: redisConnectionFromEnv(), concurrency: 10 },
 );
 
 worker.on("completed", (job) => {
