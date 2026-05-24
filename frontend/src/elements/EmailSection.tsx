@@ -51,6 +51,11 @@ function EmailSection({
                 transition-colors cursor-pointer
                 hover:bg-[var(--color-primary-hover)]
                 `}
+              onClick={() => {
+                if (emailAddress) {
+                  navigator.clipboard.writeText(emailAddress);
+                }
+              }}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
