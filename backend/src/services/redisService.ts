@@ -92,8 +92,8 @@ else
 end
 `;
 
-const RATE = 10; // ρ = 10 токенов/сек
-const CAPACITY = 50; // β = 50 (burst)
+const RATE = 2; // ρ = 10 токенов/сек
+const CAPACITY = 5; // β = 50 (burst)
 const TTL = 60; // секунд до авто-удаления ключа
 
 /**
@@ -106,27 +106,27 @@ const TTL = 60; // секунд до авто-удаления ключа
  */
 export async function checkRateLimit(ip: string): Promise<{
   allowed: boolean;
-  tokens?: number;
 }> {
   const key = `ratelimit:ip:${ip}`;
-  const now = Date.now() / 1000; // Unix timestamp в секундах
+  const now = Date.now() / 1000;
 
   const result = (await redis.eval(
     TOKEN_BUCKET_SCRIPT,
-    1, // количество ключей
-    key, // KEYS[1]
-    now, // ARGV[1]
-    RATE, // ARGV[2]
-    CAPACITY, // ARGV[3]
-    TTL, // ARGV[4]
+    1,
+    key,
+    now,
+    RATE,
+    CAPACITY,
+    TTL,
   )) as number;
 
   const allowed = result === 1;
 
-  // Лог для метрик Розділу 3
-  if (!allowed) {
-    console.log(`[RATELIMIT] ip=${ip} allowed=false`);
-  }
+  // Читаем текущее состояние ведра после операции
+  const state = await redis.hmget(key, "tokens", "lastRefill");
+  console.log(
+    `[RATELIMIT] ip=${ip} allowed=${allowed} tokens=${state[0]} rate=${RATE} capacity=${CAPACITY}`,
+  );
 
   return { allowed };
 }

@@ -122,7 +122,7 @@ async function main() {
     }
 
     // Небольшая пауза между запросами чтобы не перегружать event loop
-    if (count > 1) await new Promise((r) => setTimeout(r, 50));
+    if (count > 1) await new Promise((r) => setTimeout(r, 10));
   }
 
   console.log(
