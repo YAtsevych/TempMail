@@ -40,7 +40,9 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
     (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
     req.ip ||
     "0.0.0.0";
-
+  console.log(
+    `[RATELIMIT] senderIp=${senderIp} x-forwarded-for=${req.headers["x-forwarded-for"]} req.ip=${req.ip}`,
+  );
   const { allowed } = await checkRateLimit(senderIp);
 
   if (!allowed) {
