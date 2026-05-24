@@ -3,10 +3,10 @@ import multer from "multer";
 import crypto from "crypto";
 import { emailQueue } from "../queues/emailQueue";
 import { classifyEmail, getPriority } from "../utils/classifier";
-
+import { checkRateLimit } from "../services/redisService";
 const router = Router();
 const upload = multer();
-
+const RATE = 10; // должна совпадать с redisService.ts
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
   console.log("MAILGUN_SIGNING_KEY present?", Boolean(key));
@@ -30,6 +30,27 @@ const verifyMailgunSignature = (req: Request): boolean => {
 
 router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
   console.log("MAILGUN HIT /inbound", new Date().toISOString());
+
+  // ── Token Bucket: 1-й эшелон защиты ──────────────────
+  // IP берём из X-Sender-IP (реальный отправитель, Mailgun проставляет)
+  // или fallback на req.ip (IP самого Mailgun gateway).
+  // В дипломе: тротлінг за IP на рівні ingest API (Розділ 1.3).
+  const senderIp =
+    (req.body?.["X-Sender-IP"] as string) ||
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+    req.ip ||
+    "0.0.0.0";
+
+  const { allowed } = await checkRateLimit(senderIp);
+
+  if (!allowed) {
+    // retryAfterMs: при rate=10, следующий токен через 100мс
+    return res.status(429).json({
+      success: false,
+      error: "rate_limit_exceeded",
+      retryAfterMs: Math.ceil((1 / RATE) * 1000),
+    });
+  }
   console.log("MAILGUN content-type:", req.headers["content-type"]);
   console.log("MAILGUN body keys:", Object.keys(req.body || {}));
   try {
