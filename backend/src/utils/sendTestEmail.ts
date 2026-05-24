@@ -25,24 +25,30 @@ function generateSignature(timestamp: string, token: string): string {
 }
 
 // ── Шаблоны писем ─────────────────────────────────────────
-const templates = {
-  // mice: маленькое OTP письмо (приоритет 2)
+const templates: Record<
+  string,
+  {
+    from: string;
+    subject: string;
+    "body-plain": string;
+    "body-html": string;
+    attachments?: Array<{ name: string; size: number; content_type: string }>;
+  }
+> = {
   mice: {
     from: "noreply@github.com",
     subject: "Your verification code",
     "body-plain":
       "Your GitHub verification code is: 849321\n\nThis code expires in 15 minutes.",
     "body-html":
-      "<p>Your GitHub verification code is: <strong>849321</strong></p><p>This code expires in 15 minutes.</p>",
+      "<p>Your GitHub verification code is: <strong>849321</strong></p>",
   },
-  // elephant: большое HTML письмо (приоритет 1)
   elephant: {
     from: "newsletter@medium.com",
     subject: "Your weekly digest from Medium",
-    "body-plain": "A".repeat(15000), // > 10KB → elephant
+    "body-plain": "A".repeat(15000),
     "body-html": `<html><body>${"<p>Newsletter content paragraph.</p>".repeat(300)}</body></html>`,
   },
-  // spam: для теста rate limiter
   spam: {
     from: "spam@attacker.com",
     subject: "Buy now!!!",
@@ -54,7 +60,6 @@ const templates = {
     subject: "Important document",
     "body-plain": "Please see attached.",
     "body-html": "<p>Please see attached.</p>",
-    // 25 вкладень → спрацює RULE_3
     attachments: Array.from({ length: 25 }, (_, i) => ({
       name: `file${i}.pdf`,
       size: 1024,
@@ -74,7 +79,6 @@ async function sendEmail(
 
   const template = templates[type];
 
-  // FormData как multipart/form-data (Mailgun отправляет именно так)
   const params = new URLSearchParams({
     recipient: INBOX,
     sender: template.from,
@@ -86,6 +90,11 @@ async function sendEmail(
     token,
     signature,
   });
+
+  // Вложения сериализуем в JSON-строку — так делает настоящий Mailgun
+  if (template.attachments && template.attachments.length > 0) {
+    params.append("attachments", JSON.stringify(template.attachments));
+  }
 
   const res = await fetch(API_URL, {
     method: "POST",

@@ -67,7 +67,21 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
     const subject = req.body.subject || null;
     const body_text = req.body["body-plain"] || null;
     const body_html = req.body["body-html"] || null;
-    const attachments = req.body.attachments || [];
+    let attachments: Array<{
+      name?: string;
+      size?: number;
+      content_type?: string;
+    }> = [];
+    try {
+      const raw = req.body.attachments;
+      if (typeof raw === "string") {
+        attachments = JSON.parse(raw);
+      } else if (Array.isArray(raw)) {
+        attachments = raw;
+      }
+    } catch {
+      attachments = [];
+    }
 
     if (!recipient || !sender) {
       return res
