@@ -21,6 +21,10 @@ import emailsRouter from "./routes/emails";
 import mailgunRouter from "./routes/mailgun";
 import { initIo } from "./socket";
 
+//Імпорти для метрик
+import { getMetricCounters } from "./services/redisService";
+import { emailQueue } from "./queues/emailQueue";
+
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
@@ -102,6 +106,40 @@ app.get("/health", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("[health] ❌ Health check failed:", (error as Error).message);
     res.status(500).json({ status: "error", error: String(error) });
+  }
+});
+
+// ── Metrics ───────────────────────────────────────────────
+// Повертає всі лічильники системи для Розділу 3 диплому.
+// Використовуй після стрес-тесту щоб зняти дані для таблиць.
+app.get("/api/metrics", async (req: Request, res: Response) => {
+  try {
+    const [counters, jobCounts, dbResult] = await Promise.all([
+      getMetricCounters(),
+      emailQueue.getJobCounts("waiting", "active", "completed", "failed"),
+      pool.query(
+        "SELECT COUNT(*)::int AS count FROM inboxes WHERE expires_at > NOW()",
+      ),
+    ]);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      traffic: {
+        totalReceived: counters.totalReceived ?? 0,
+        miceProcessed: counters.miceProcessed ?? 0,
+        elephantProcessed: counters.elephantProcessed ?? 0,
+        rateLimitedRejected: counters.rateLimitedRejected ?? 0,
+        mimeRejected: counters.mimeRejected ?? 0,
+      },
+      queue: jobCounts,
+      system: {
+        activeMailboxes: dbResult.rows[0]?.count ?? 0,
+        wsClients: io.engine.clientsCount,
+      },
+    });
+  } catch (err) {
+    console.error("[metrics] ❌ Error:", (err as Error).message);
+    res.status(500).json({ error: "Failed to get metrics" });
   }
 });
 
