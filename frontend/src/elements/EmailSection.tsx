@@ -49,15 +49,15 @@ function EmailSection({
             <button
               onClick={handleCopy}
               className={`${theme === "dark" ? "dark" : "light"}
-                w-full inline-flex items-center justify-center gap-2
-                h-9 px-[12px] mr-2
-                text-sm leading-none
-                rounded-xl cursor-pointer transition-all duration-200
-                ${
-                  copied
-                    ? "bg-green-500 text-white"
-                    : "text-[var(--color-bg)] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]"
-                }`}
+    w-full sm:w-[140px] shrink-0 inline-flex items-center justify-center gap-2
+    h-9 px-[12px] mr-2
+    text-sm leading-none
+    rounded-xl cursor-pointer transition-all duration-200
+    ${
+      copied
+        ? "bg-green-500 text-white"
+        : "text-[var(--color-bg)] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]"
+    }`}
             >
               {copied ? (
                 // Галочка при копировании
