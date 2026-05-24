@@ -1,12 +1,14 @@
+// backend/src/queues/queueWorker.ts
 import { Worker } from "bullmq";
 import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
-import { redisConnectionFromEnv, emailQueue } from "./emailQueue";
+import { redisConnectionFromEnv } from "./emailQueue";
 import { createPublisher, PUBSUB_CHANNEL } from "../socket";
 import { runMimeFilter, MimeFilterInput } from "../utils/mimeFilter";
+import { classifyEmail } from "../utils/classifier";
+
 console.log("=== BullMQ WORKER STARTED ===");
 
-// Publisher живёт в процессе воркера
 const publisher = createPublisher();
 
 const worker = new Worker(
@@ -14,18 +16,32 @@ const worker = new Worker(
   async (job) => {
     const startTs = Date.now();
     const email = job.data;
+
+    // ── Класифікація (2-й ешелон) ─────────────────────────
+    // Визначаємо тип листа для логів і верифікації пріоритету.
+    // Фактичний пріоритет вже встановлений при постановці в чергу
+    // через mailgun.ts/emails.ts → тут лише логуємо для Розділу 3.
+    const classifyResult = classifyEmail({
+      subject: email.subject,
+      body_text: email.body_text,
+      body_html: email.body_html,
+      from_address: email.from_address,
+      attachments: email.attachments ?? [],
+    });
+
     console.log(
-      `[MIME-DEBUG] attachments=${JSON.stringify(email.attachments)} | ` +
-        `bodySize=${(email.body_text?.length ?? 0) + (email.body_html?.length ?? 0)}`,
+      `[CLASSIFY] job=${job.id} type=${classifyResult.type} | ` +
+        `score=mice:${classifyResult.score.mice}/elephant:${classifyResult.score.elephant} | ` +
+        `reasons=${classifyResult.reasons.join(", ")}`,
     );
+
     console.log(
-      `[BullMQ][Worker] Job ${job.id} | priority=${job.opts.priority === 2 ? "mice" : "elephant"} | ` +
+      `[BullMQ][Worker] Job ${job.id} | ` +
+        `priority=${job.opts.priority === 2 ? "mice" : "elephant"} | ` +
         `from=${email.from_address} | inbox=${email.inbox_address}`,
     );
 
-    // ── MIME-фільтр: 3-й ешелон захисту ──────────────────
-    // Запускається ДО збереження в БД.
-    // Відхилені листи не потрапляють в PostgreSQL і не споживають ресурси.
+    // ── MIME-фільтр (3-й ешелон) ──────────────────────────
     const mimeInput: MimeFilterInput = {
       bodyText: email.body_text,
       bodyHtml: email.body_html,
@@ -35,20 +51,19 @@ const worker = new Worker(
     const mimeResult = runMimeFilter(mimeInput);
 
     if (!mimeResult.passed) {
-      // LOG для Розділу 3: фіксуємо кожне відхилення з правилом
       console.warn(
         `[MIME-FILTER] Job ${job.id} REJECTED | ` +
           `rule=${mimeResult.rule} | reason="${mimeResult.reason}" | ` +
           `from=${email.from_address}`,
       );
-      // Повертаємо без помилки — job вважається виконаним (не retry)
       return {
         status: "rejected",
         rule: mimeResult.rule,
         reason: mimeResult.reason,
       };
     }
-    // Шаг 1: сохраняем в PostgreSQL
+
+    // ── Збереження в PostgreSQL ───────────────────────────
     const emailId = uuidv4();
     await pool.query(
       `INSERT INTO emails
@@ -67,7 +82,7 @@ const worker = new Worker(
       ],
     );
 
-    // публикуем в Redis → index.ts получит и сделает io.emit
+    // ── WebSocket push через Redis Pub/Sub ────────────────
     const room = `mailbox:${email.inbox_address}`;
     const payload = {
       id: emailId,

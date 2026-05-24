@@ -5,7 +5,7 @@ import {
   getInboxByToken,
   deleteInbox,
 } from "../services/inboxService";
-import simulateIncomingEmails from "../utils/simulateIncomingEmails";
+
 const router = Router();
 
 // POST /inbox/create — создать новый inbox

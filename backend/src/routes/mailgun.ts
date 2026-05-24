@@ -92,12 +92,14 @@ router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
     const recipient_normal = String(recipient).toLowerCase();
 
     // --- BullMQ: Классификация и постановка письма в очередь ---
-    const priorityClass = classifyEmail({
+    const classifyResult = classifyEmail({
       subject,
       body_text,
       body_html,
+      from_address: sender, // або from_address залежно від файлу
       attachments,
     });
+    const priorityClass = classifyResult.type;
     console.log("MailGun priorityClass:" + priorityClass);
     const job = await emailQueue.add(
       "newEmail",

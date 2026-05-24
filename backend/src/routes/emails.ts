@@ -33,12 +33,14 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Классификация для приоритета
-    const priorityClass = classifyEmail({
+    const classifyResult = classifyEmail({
       subject,
       body_text,
       body_html,
-      attachments: attachments || [],
+      from_address: from_address, // або from_address залежно від файлу
+      attachments,
     });
+    const priorityClass = classifyResult.type;
 
     // Добавляем письмо в очередь BullMQ
     const job = await emailQueue.add(

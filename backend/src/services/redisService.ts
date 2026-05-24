@@ -122,12 +122,6 @@ export async function checkRateLimit(ip: string): Promise<{
 
   const allowed = result === 1;
 
-  // Читаем текущее состояние ведра после операции
-  const state = await redis.hmget(key, "tokens", "lastRefill");
-  console.log(
-    `[RATELIMIT] ip=${ip} allowed=${allowed} tokens=${state[0]} rate=${RATE} capacity=${CAPACITY}`,
-  );
-
   return { allowed };
 }
 export default redis;
