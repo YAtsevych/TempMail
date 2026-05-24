@@ -97,9 +97,15 @@ async function sendEmail(
     params.append("attachments", JSON.stringify(template.attachments));
   }
 
+  // Фіксований IP для тесту rate limiter
+  params.append("X-Sender-IP", "1.2.3.4");
+
   const res = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Forwarded-For": "1.2.3.4",
+    },
     body: params.toString(),
   });
 
@@ -144,7 +150,7 @@ async function main() {
     }
 
     // Небольшая пауза между запросами чтобы не перегружать event loop
-    if (count > 1) await new Promise((r) => setTimeout(r, 10));
+    // if (count > 1) await new Promise((r) => setTimeout(r, 0));
   }
 
   console.log(
