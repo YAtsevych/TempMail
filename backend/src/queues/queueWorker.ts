@@ -14,7 +14,10 @@ const worker = new Worker(
   async (job) => {
     const startTs = Date.now();
     const email = job.data;
-
+    console.log(
+      `[MIME-DEBUG] attachments=${JSON.stringify(email.attachments)} | ` +
+        `bodySize=${(email.body_text?.length ?? 0) + (email.body_html?.length ?? 0)}`,
+    );
     console.log(
       `[BullMQ][Worker] Job ${job.id} | priority=${job.opts.priority === 2 ? "mice" : "elephant"} | ` +
         `from=${email.from_address} | inbox=${email.inbox_address}`,
