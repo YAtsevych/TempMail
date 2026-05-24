@@ -6,7 +6,7 @@ import { classifyEmail, getPriority } from "../utils/classifier";
 import { checkRateLimit } from "../services/redisService";
 const router = Router();
 const upload = multer();
-const RATE = 2; // должна совпадать с redisService.ts
+const RATE = 10; // должна совпадать с redisService.ts
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
   console.log("MAILGUN_SIGNING_KEY present?", Boolean(key));

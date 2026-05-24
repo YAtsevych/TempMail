@@ -92,8 +92,8 @@ else
 end
 `;
 
-const RATE = 2; // ρ = 10 токенов/сек
-const CAPACITY = 5; // β = 50 (burst)
+const RATE = 10; // ρ = 10 токенов/сек
+const CAPACITY = 50; // β = 50 (burst)
 const TTL = 60; // секунд до авто-удаления ключа
 
 /**
