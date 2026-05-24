@@ -49,6 +49,18 @@ const templates = {
     "body-plain": "Click here to claim your prize.",
     "body-html": "<p>Click here to claim your prize.</p>",
   },
+  mime_bomb: {
+    from: "attacker@evil.com",
+    subject: "Important document",
+    "body-plain": "Please see attached.",
+    "body-html": "<p>Please see attached.</p>",
+    // 25 вкладень → спрацює RULE_3
+    attachments: Array.from({ length: 25 }, (_, i) => ({
+      name: `file${i}.pdf`,
+      size: 1024,
+      content_type: "application/pdf",
+    })),
+  },
 };
 
 // ── Отправка одного письма ────────────────────────────────

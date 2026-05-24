@@ -3,7 +3,7 @@ import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
 import { redisConnectionFromEnv, emailQueue } from "./emailQueue";
 import { createPublisher, PUBSUB_CHANNEL } from "../socket";
-
+import { runMimeFilter, MimeFilterInput } from "../utils/mimeFilter";
 console.log("=== BullMQ WORKER STARTED ===");
 
 // Publisher живёт в процессе воркера
@@ -20,6 +20,31 @@ const worker = new Worker(
         `from=${email.from_address} | inbox=${email.inbox_address}`,
     );
 
+    // ── MIME-фільтр: 3-й ешелон захисту ──────────────────
+    // Запускається ДО збереження в БД.
+    // Відхилені листи не потрапляють в PostgreSQL і не споживають ресурси.
+    const mimeInput: MimeFilterInput = {
+      bodyText: email.body_text,
+      bodyHtml: email.body_html,
+      attachments: email.attachments ?? [],
+    };
+
+    const mimeResult = runMimeFilter(mimeInput);
+
+    if (!mimeResult.passed) {
+      // LOG для Розділу 3: фіксуємо кожне відхилення з правилом
+      console.warn(
+        `[MIME-FILTER] Job ${job.id} REJECTED | ` +
+          `rule=${mimeResult.rule} | reason="${mimeResult.reason}" | ` +
+          `from=${email.from_address}`,
+      );
+      // Повертаємо без помилки — job вважається виконаним (не retry)
+      return {
+        status: "rejected",
+        rule: mimeResult.rule,
+        reason: mimeResult.reason,
+      };
+    }
     // Шаг 1: сохраняем в PostgreSQL
     const emailId = uuidv4();
     await pool.query(
