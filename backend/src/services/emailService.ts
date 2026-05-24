@@ -1,10 +1,12 @@
+// Збереження і отримання листів, кешування через Redis
+
 import pool from "../db";
-import { del, get, setWithTTL } from "./redisService";
+import { del, setWithTTL } from "./redisService";
 import { extractConfirmationCode } from "../utils/extractConfirmationCode";
 import type { CreateEmailInput, Email } from "../types/email";
 
-const EMAILS_TTL = 60 * 60; // 1 час
-const EMPTY_CACHE_TTL = 5; // 5 секунд, чтобы пустой список не залипал
+const EMAILS_TTL = 60 * 60; // 1 година
+const EMPTY_CACHE_TTL = 5; // якщо листів немає — кешуємо ненадовго щоб не спамити БД
 
 const normalizeInbox = (inbox: string) => inbox.toLowerCase();
 const emailsKey = (inbox: string) => `emails:${normalizeInbox(inbox)}`;
@@ -14,6 +16,7 @@ export const createEmail = async (input: CreateEmailInput): Promise<Email> => {
   const expiresAt = new Date(Date.now() + EMAILS_TTL * 1000);
   const inbox = normalizeInbox(input.inbox_address);
 
+  // Намагаємось витягнути код підтвердження з тексту листа
   const textForCode = `${input.subject ?? ""}\n${input.body_text ?? ""}\n${input.body_html ?? ""}`;
   const confirmationCode = extractConfirmationCode(textForCode);
 
@@ -34,9 +37,10 @@ export const createEmail = async (input: CreateEmailInput): Promise<Email> => {
 
   const email = result.rows[0];
 
-  // ✅ инвалидируем правильный ключ
+  // Інвалідуємо кеш — наступний запит отримає свіжі дані з БД
   await del(emailsKey(inbox));
 
+  // Зберігаємо код окремо щоб швидко знаходити без перебору листів
   if (confirmationCode) {
     await setWithTTL(
       codeKey(inbox),
@@ -60,7 +64,7 @@ export const listEmails = async (inboxAddress: string): Promise<Email[]> => {
 
   const emails = result.rows;
 
-  // ✅ если пусто — кэшируем на 5 сек, чтобы не залипало
+  // Кешуємо результат — якщо пусто то на 5 сек, інакше на годину
   await setWithTTL(
     emailsKey(inbox),
     emails,
@@ -70,6 +74,7 @@ export const listEmails = async (inboxAddress: string): Promise<Email[]> => {
   return emails;
 };
 
+// Повертає найсвіжіший код підтвердження для інбоксу
 export const getLatestConfirmationCode = async (
   inboxAddress: string,
 ): Promise<{ code: string; email_id: string } | null> => {
@@ -85,6 +90,7 @@ export const getLatestConfirmationCode = async (
   );
 
   if (result.rows.length === 0) return null;
+
   const row = result.rows[0];
   const payload = { code: row.confirmation_code, email_id: row.id };
 

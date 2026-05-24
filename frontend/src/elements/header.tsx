@@ -4,7 +4,7 @@ type HeaderProps = {
   theme: Theme;
   setTheme: React.Dispatch<React.SetStateAction<Theme>>;
   DeleteInbox: () => void;
-  wsConnected: boolean; // <-- НОВОЕ
+  wsConnected: boolean;
 };
 function Header({ theme, setTheme, DeleteInbox, wsConnected }: HeaderProps) {
   const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
@@ -91,7 +91,10 @@ function Header({ theme, setTheme, DeleteInbox, wsConnected }: HeaderProps) {
                 <span className="truncate">Delete Inbox</span>
               </button>
             ) : (
-              <button className="w-9 h-9 mr-4 flex items-center justify-center text-[lab(59.3909_-1.07732_-3.56233)]">
+              <button
+                onClick={DeleteInbox}
+                className="w-9 h-9 mr-4 flex items-center justify-center text-[lab(59.3909_-1.07732_-3.56233)]"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"

@@ -1,3 +1,5 @@
+// REST API для роботи з листами
+
 import { Router, Request, Response } from "express";
 import {
   getLatestConfirmationCode,
@@ -9,7 +11,7 @@ import { classifyEmail, getPriority } from "../utils/classifier";
 
 const router = Router();
 
-// POST /emails — новые письма теперь ТОЛЬКО через очередь!
+// POST /emails — приймаємо лист і кладемо в чергу
 router.post("/", async (req: Request, res: Response) => {
   try {
     const {
@@ -32,17 +34,14 @@ router.post("/", async (req: Request, res: Response) => {
         .json({ success: false, error: "from_address is required" });
     }
 
-    // Классификация для приоритета
-    const classifyResult = classifyEmail({
+    const { type: priorityClass } = classifyEmail({
       subject,
       body_text,
       body_html,
-      from_address: from_address, // або from_address залежно від файлу
+      from_address,
       attachments,
     });
-    const priorityClass = classifyResult.type;
 
-    // Добавляем письмо в очередь BullMQ
     const job = await emailQueue.add(
       "newEmail",
       {
@@ -58,25 +57,23 @@ router.post("/", async (req: Request, res: Response) => {
     );
 
     console.log(
-      `[BullMQ][API] Job ${job.id} (${priorityClass}) added for ${inbox_address}`,
+      `[emails] ✅ Job ${job.id} | type=${priorityClass} | inbox=${inbox_address}`,
     );
 
-    // Ответ: письмо будет доступно после обработки воркером!
     return res.status(202).json({
       success: true,
       jobId: job.id,
       priority: priorityClass,
-      message: "Email accepted and queued, will appear after processing.",
     });
   } catch (error) {
-    console.error("❌ Create email error:", error);
+    console.error("[emails] ❌ Queue error:", (error as Error).message);
     return res
       .status(500)
       .json({ success: false, error: "Failed to queue email" });
   }
 });
 
-// GET /emails?inbox=...
+// GET /emails?inbox=... — отримати список листів
 router.get("/", async (req: Request, res: Response) => {
   try {
     const raw = req.query.inbox;
@@ -91,14 +88,14 @@ router.get("/", async (req: Request, res: Response) => {
     const emails = await listEmails(inbox.toLowerCase());
     return res.json({ success: true, data: emails });
   } catch (error) {
-    console.error("❌ List emails error:", error);
+    console.error("[emails] ❌ List error:", (error as Error).message);
     return res
       .status(500)
       .json({ success: false, error: "Failed to list emails" });
   }
 });
 
-// GET /emails/code?inbox=...
+// GET /emails/code?inbox=... — останній код підтвердження
 router.get("/code", async (req: Request, res: Response) => {
   try {
     const raw = req.query.inbox;
@@ -113,27 +110,24 @@ router.get("/code", async (req: Request, res: Response) => {
     const code = await getLatestConfirmationCode(inbox.toLowerCase());
     return res.json({ success: true, data: code });
   } catch (error) {
-    console.error("❌ Get code error:", error);
+    console.error("[emails] ❌ Code error:", (error as Error).message);
     return res
       .status(500)
       .json({ success: false, error: "Failed to get code" });
   }
 });
 
-// PATCH /emails/:id/read
+// PATCH /emails/:id/read — позначити як прочитане
 router.patch("/:id/read", async (req: Request, res: Response) => {
   try {
-    const rawId = req.params.id;
-    const id = Array.isArray(rawId) ? rawId[0] : rawId;
-
+    const id = req.params.id;
     if (typeof id !== "string") {
       return res.status(400).json({ success: false, error: "Invalid ID" });
     }
-
     await markEmailRead(id);
     return res.json({ success: true });
   } catch (error) {
-    console.error("❌ Mark read error:", error);
+    console.error("[emails] ❌ Mark read error:", (error as Error).message);
     return res
       .status(500)
       .json({ success: false, error: "Failed to mark read" });

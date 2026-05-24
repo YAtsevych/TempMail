@@ -1,4 +1,6 @@
-// backend/src/queues/queueWorker.ts
+// Воркер BullMQ — обробляє листи з черги
+// Запускається як окремий процес поряд з index.ts
+
 import { Worker } from "bullmq";
 import pool from "../db";
 import { v4 as uuidv4 } from "uuid";
@@ -6,10 +8,31 @@ import { redisConnectionFromEnv } from "./emailQueue";
 import { createPublisher, PUBSUB_CHANNEL } from "../socket";
 import { runMimeFilter, MimeFilterInput } from "../utils/mimeFilter";
 import { classifyEmail } from "../utils/classifier";
+import { incrementMetric } from "../services/redisService";
 
-console.log("=== BullMQ WORKER STARTED ===");
+console.log("[worker] ✅ BullMQ Worker started");
 
 const publisher = createPublisher();
+
+// Скользящий масив останніх 1000 вимірювань для p99
+const processingTimes: number[] = [];
+
+export function recordProcessingTime(ms: number): void {
+  processingTimes.push(ms);
+  if (processingTimes.length > 1000) processingTimes.shift();
+}
+
+export function getProcessingStats(): {
+  avg: number;
+  p99: number;
+  count: number;
+} {
+  if (processingTimes.length === 0) return { avg: 0, p99: 0, count: 0 };
+  const sorted = [...processingTimes].sort((a, b) => a - b);
+  const avg = Math.round(sorted.reduce((s, v) => s + v, 0) / sorted.length);
+  const p99 = sorted[Math.ceil(sorted.length * 0.99) - 1];
+  return { avg, p99, count: sorted.length };
+}
 
 const worker = new Worker(
   "emailQueue",
@@ -17,10 +40,7 @@ const worker = new Worker(
     const startTs = Date.now();
     const email = job.data;
 
-    // ── Класифікація (2-й ешелон) ─────────────────────────
-    // Визначаємо тип листа для логів і верифікації пріоритету.
-    // Фактичний пріоритет вже встановлений при постановці в чергу
-    // через mailgun.ts/emails.ts → тут лише логуємо для Розділу 3.
+    // 2-й ешелон: класифікація
     const classifyResult = classifyEmail({
       subject: email.subject,
       body_text: email.body_text,
@@ -30,31 +50,22 @@ const worker = new Worker(
     });
 
     console.log(
-      `[CLASSIFY] job=${job.id} type=${classifyResult.type} | ` +
-        `score=mice:${classifyResult.score.mice}/elephant:${classifyResult.score.elephant} | ` +
-        `reasons=${classifyResult.reasons.join(", ")}`,
+      `[worker] job=${job.id} | type=${classifyResult.type} | ` +
+        `mice:${classifyResult.score.mice} vs elephant:${classifyResult.score.elephant} | ` +
+        `${classifyResult.reasons.join(", ")}`,
     );
 
-    console.log(
-      `[BullMQ][Worker] Job ${job.id} | ` +
-        `priority=${job.opts.priority === 2 ? "mice" : "elephant"} | ` +
-        `from=${email.from_address} | inbox=${email.inbox_address}`,
-    );
-
-    // ── MIME-фільтр (3-й ешелон) ──────────────────────────
-    const mimeInput: MimeFilterInput = {
+    // 3-й ешелон: MIME-фільтр — відхиляємо аномальні листи до збереження в БД
+    const mimeResult = runMimeFilter({
       bodyText: email.body_text,
       bodyHtml: email.body_html,
       attachments: email.attachments ?? [],
-    };
-
-    const mimeResult = runMimeFilter(mimeInput);
+    } as MimeFilterInput);
 
     if (!mimeResult.passed) {
+      await incrementMetric("mimeRejected");
       console.warn(
-        `[MIME-FILTER] Job ${job.id} REJECTED | ` +
-          `rule=${mimeResult.rule} | reason="${mimeResult.reason}" | ` +
-          `from=${email.from_address}`,
+        `[worker] 🚫 MIME rejected | job=${job.id} | rule=${mimeResult.rule} | ${mimeResult.reason}`,
       );
       return {
         status: "rejected",
@@ -63,7 +74,7 @@ const worker = new Worker(
       };
     }
 
-    // ── Збереження в PostgreSQL ───────────────────────────
+    // Зберігаємо в PostgreSQL
     const emailId = uuidv4();
     await pool.query(
       `INSERT INTO emails
@@ -82,7 +93,12 @@ const worker = new Worker(
       ],
     );
 
-    // ── WebSocket push через Redis Pub/Sub ────────────────
+    // Оновлюємо лічильники для метрик
+    await incrementMetric(
+      classifyResult.type === "mice" ? "miceProcessed" : "elephantProcessed",
+    );
+
+    // Push клієнту через Redis Pub/Sub → Socket.io
     const room = `mailbox:${email.inbox_address}`;
     const payload = {
       id: emailId,
@@ -99,23 +115,23 @@ const worker = new Worker(
     await publisher.publish(PUBSUB_CHANNEL, JSON.stringify({ room, payload }));
 
     const processingMs = Date.now() - startTs;
+    recordProcessingTime(processingMs);
+
     console.log(
-      `[BullMQ][Worker] Job ${job.id} DONE | ` +
-        `emailId=${emailId} | processingMs=${processingMs} | ` +
-        `wsRoom=${room} | status=published_to_redis`,
+      `[worker] ✅ job=${job.id} | ${processingMs}ms | emailId=${emailId}`,
     );
   },
   { connection: redisConnectionFromEnv() },
 );
 
 worker.on("completed", (job) => {
-  console.log(`[BullMQ][Worker] Job COMPLETED: ${job.id}`);
+  console.log(`[worker] ✓ Completed job=${job.id}`);
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`[BullMQ][Worker] Job FAILED: ${job?.id} —`, err.message);
+  console.error(`[worker] ❌ Failed job=${job?.id} | ${err.message}`);
 });
 
 worker.on("error", (err) => {
-  console.error("[BullMQ][Worker] Worker error:", err);
+  console.error("[worker] ❌ Worker error:", err.message);
 });

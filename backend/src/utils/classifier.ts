@@ -1,15 +1,5 @@
-// backend/src/utils/classifier.ts
-// Класифікатор трафіку — 2-й ешелон захисту (Розділ 1.3 диплому).
-// Визначає клас повідомлення: mice (пріоритет 2) або elephant (пріоритет 1).
-//
-// Алгоритм: зважена система ознак.
-// Кожна ознака додає бали до mice або elephant.
-// Фінальний клас = той що набрав більше балів.
-//
-// mice  = транзакційні листи (OTP, підтвердження, сповіщення)
-//         → малий розмір, ключові слова в subject, один одержувач
-// elephant = масові розсилки, newsletters, листи з вкладеннями
-//         → великий розмір, HTML-важкий, багато вкладень
+// Визначає тип листа: mice (OTP, підтвердження) або elephant (розсилка, реклама)
+// Використовує зважену систему ознак — чим більше балів, тим впевненіша класифікація
 
 export interface ClassifyInput {
   subject?: string;
@@ -22,12 +12,10 @@ export interface ClassifyInput {
 export interface ClassifyResult {
   type: "mice" | "elephant";
   score: { mice: number; elephant: number };
-  reasons: string[]; // для логів Розділу 3
+  reasons: string[];
 }
 
-// ── Ознаки mice (транзакційний лист) ─────────────────────
-// Кожна ознака = кількість балів на користь mice
-
+// Ознаки транзакційного листа (mice)
 const MICE_SUBJECT_PATTERNS = [
   { pattern: /\b(OTP|one.time.pass)/i, score: 5, label: "OTP в subject" },
   {
@@ -79,8 +67,7 @@ const MICE_FROM_PATTERNS = [
   { pattern: /support|help|service/i, score: 1, label: "support відправник" },
 ];
 
-// ── Ознаки elephant (масова розсилка) ────────────────────
-
+// Ознаки масової розсилки (elephant)
 const ELEPHANT_SUBJECT_PATTERNS = [
   {
     pattern: /newsletter|digest|weekly|monthly/i,
@@ -118,22 +105,14 @@ const ELEPHANT_FROM_PATTERNS = [
   },
 ];
 
-// ── Розмірні пороги ───────────────────────────────────────
+// Пороги розміру для класифікації
 const SIZE_THRESHOLDS = {
-  definitelyMice: 2 * 1024, // < 2KB  → майже точно mice  (+4 бали)
-  likelyMice: 10 * 1024, // < 10KB → швидше mice        (+2 бали)
-  likelyElephant: 50 * 1024, // > 50KB → швидше elephant    (+3 бали)
-  definitelyElephant: 200 * 1024, // > 200KB → точно elephant  (+5 балів)
+  definitelyMice: 2 * 1024, // < 2KB   → майже точно mice
+  likelyMice: 10 * 1024, // < 10KB  → схоже на mice
+  likelyElephant: 50 * 1024, // > 50KB  → схоже на elephant
+  definitelyElephant: 200 * 1024, // > 200KB → точно elephant
 };
 
-/**
- * Класифікує вхідне повідомлення як mice або elephant.
- *
- * @returns ClassifyResult з типом, балами та причинами — для логів Розділу 3
- *
- * LOG формат (queueWorker.ts):
- *   [CLASSIFY] type=mice score={mice:8,elephant:2} reasons=["OTP в subject","noreply відправник"]
- */
 export function classifyEmail(input: ClassifyInput): ClassifyResult {
   const {
     subject = "",
@@ -147,7 +126,7 @@ export function classifyEmail(input: ClassifyInput): ClassifyResult {
   let elephantScore = 0;
   const reasons: string[] = [];
 
-  // ── 1. Аналіз subject ─────────────────────────────────
+  // Аналізуємо subject
   for (const { pattern, score, label } of MICE_SUBJECT_PATTERNS) {
     if (pattern.test(subject)) {
       miceScore += score;
@@ -161,7 +140,7 @@ export function classifyEmail(input: ClassifyInput): ClassifyResult {
     }
   }
 
-  // ── 2. Аналіз from_address ────────────────────────────
+  // Аналізуємо відправника
   for (const { pattern, score, label } of MICE_FROM_PATTERNS) {
     if (pattern.test(from_address)) {
       miceScore += score;
@@ -175,7 +154,7 @@ export function classifyEmail(input: ClassifyInput): ClassifyResult {
     }
   }
 
-  // ── 3. Розмір повідомлення ────────────────────────────
+  // Розмір листа
   const totalSize =
     (body_text?.length ?? 0) +
     (body_html?.length ?? 0) +
@@ -195,41 +174,33 @@ export function classifyEmail(input: ClassifyInput): ClassifyResult {
     reasons.push(`[elephant] розмір ${totalSize}B > 50KB`);
   }
 
-  // ── 4. Вкладення ──────────────────────────────────────
+  // Вкладення => завжди підозріло для транзакційного листа
   if (attachments.length > 0) {
     elephantScore += Math.min(attachments.length * 2, 6);
     reasons.push(`[elephant] ${attachments.length} вкладень`);
   }
 
-  // ── 5. HTML-важкість ─────────────────────────────────
-  // Транзакційні листи мають простий HTML або лише text.
-  // Newsletter = складний HTML з таблицями, стилями, картинками.
+  // Якщо HTML набагато більший за текст == це розсилка
   const htmlRatio = body_html.length / Math.max(body_text.length || 1, 1);
   if (htmlRatio > 10) {
-    // HTML в 10+ разів більший за text → явна HTML-розсилка
     elephantScore += 3;
     reasons.push(`[elephant] HTML/text ratio=${htmlRatio.toFixed(1)}`);
   }
 
-  // ── 6. Ознаки unsubscribe в body ─────────────────────
-  // Наявність посилання на відписку = маркетинговий лист
+  // Посилання на відписку +- маркер маркетингового листа
   if (/unsubscribe|opt.out|manage.subscription/i.test(body_html + body_text)) {
-    elephantScore += 4;
+    elephantScore += 3;
     reasons.push("[elephant] unsubscribe в body");
   }
 
-  // ── Фінальне рішення ──────────────────────────────────
-  // При рівних балах → mice (пріоритизуємо транзакційний трафік)
+  // При рівних балах — mice, бо транзакційний трафік важливіший
   const type: "mice" | "elephant" =
     miceScore >= elephantScore ? "mice" : "elephant";
 
-  return {
-    type,
-    score: { mice: miceScore, elephant: elephantScore },
-    reasons,
-  };
+  return { type, score: { mice: miceScore, elephant: elephantScore }, reasons };
 }
 
 export function getPriority(type: "mice" | "elephant"): number {
+  // BullMQ: більше число = вищий пріоритет
   return type === "mice" ? 2 : 1;
 }

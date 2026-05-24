@@ -1,16 +1,9 @@
-// frontend/src/App.tsx
-// Изменения относительно оригинала:
-//   1. Добавлен хук useWebSocket — подписка через Socket.io
-//   2. При получении NEW_EMAIL — письмо вставляется в начало списка (без запроса к серверу)
-//   3. setInterval снижен с 5с до 30с — работает только как fallback
-//   4. WebSocket индикатор в header через проп wsConnected
-
 import "./App.css";
 import Header from "../src/elements/header";
 import EmailSection from "../src/elements/EmailSection";
 import InboxSection from "../src/elements/InboxSection";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io as socketIO, Socket } from "socket.io-client"; // <-- НОВОЕ
+import { io as socketIO, Socket } from "socket.io-client";
 
 type Theme = "dark" | "light";
 
@@ -34,11 +27,8 @@ function getInitialTheme(): Theme {
     : "light";
 }
 
-// ── WebSocket хук ──────────────────────────────────────────
-// Подключается к серверу, подписывается на комнату mailbox:<address>,
-// при получении NEW_EMAIL вызывает onNewEmail(letter).
-//
-// Возвращает wsConnected для UI-индикатора (можно показать в header).
+// Підключається до WebSocket і підписується на інбокс
+// При отриманні нового листа викликає onNewEmail
 function useWebSocket(
   emailAddress: string | null,
   onNewEmail: (letter: Letter) => void,
@@ -50,31 +40,18 @@ function useWebSocket(
     if (!emailAddress) return;
 
     const WS_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
-    // Создаём соединение
-    const socket = socketIO(WS_URL, {
-      transports: ["websocket", "polling"],
-    });
+    const socket = socketIO(WS_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setWsConnected(true);
-      console.log("[WS] Connected, subscribing to:", emailAddress);
-      // Подписываемся на комнату нашего mailbox
       socket.emit("SUBSCRIBE_MAILBOX", emailAddress);
     });
 
-    socket.on("disconnect", () => {
-      setWsConnected(false);
-      console.log("[WS] Disconnected");
-    });
+    socket.on("disconnect", () => setWsConnected(false));
 
-    // Сервер прислал новое письмо → добавляем в начало списка
-    // Это срабатывает мгновенно после обработки воркером (< 100ms)
-    socket.on("NEW_EMAIL", (letter: Letter) => {
-      console.log("[WS] NEW_EMAIL received:", letter.subject);
-      onNewEmail(letter);
-    });
+    // Новий лист від сервера — вставляємо на початок списку
+    socket.on("NEW_EMAIL", (letter: Letter) => onNewEmail(letter));
 
     return () => {
       socket.disconnect();
@@ -94,17 +71,15 @@ function App() {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [openedLetter, setOpenedLetter] = useState<Letter | null>(null);
 
-  // Колбэк для WebSocket хука — вставляем новое письмо в начало списка.
-  // useCallback нужен чтобы не пересоздавать socket при каждом рендере.
+  // useCallback щоб не пересоздавати сокет при кожному рендері
   const handleNewEmail = useCallback((letter: Letter) => {
     setLetters((prev) => {
-      // Защита от дублей (если вдруг polling и WS пришли одновременно)
+      // Захист від дублів якщо polling і WS прийшли одночасно
       if (prev.find((l) => l.id === letter.id)) return prev;
       return [letter, ...prev];
     });
   }, []);
 
-  // ── WebSocket подписка ────────────────────────────────────
   const { wsConnected } = useWebSocket(emailAddress, handleNewEmail);
 
   const createNewInbox = async (): Promise<string | null> => {
@@ -120,8 +95,7 @@ function App() {
       setEmailAddress(newAddress);
       setDisplayAddress(newDisplay);
       return newAddress;
-    } catch (e) {
-      console.error("createNewInbox error:", e);
+    } catch {
       return null;
     }
   };
@@ -131,28 +105,28 @@ function App() {
       const response = await fetch(`${API_BASE}/emails?inbox=${address}`);
       const data = await response.json();
       setLetters(data.data ?? []);
-    } catch (error) {
-      console.error("Ошибка при получении писем:", error);
+    } catch {
+      // тихо ігноруємо — наступний polling спробує знову
     }
   };
 
   const handleDeleteInbox = async () => {
     if (!emailAddress) return;
     try {
-      const deleteResponse = await fetch(
+      const res = await fetch(
         `${API_BASE}/inbox/${encodeURIComponent(emailAddress)}`,
         { method: "DELETE" },
       );
-      const deleteResult = await deleteResponse.json();
-      if (deleteResult.success) {
+      const result = await res.json();
+      if (result.success) {
         setLetters([]);
         setOpenedLetter(null);
         setEmailAddress(null);
         setDisplayAddress(null);
         await createNewInbox();
       }
-    } catch (error) {
-      console.error("Ошибка при удалении ящика:", error);
+    } catch {
+      // тихо
     }
   };
 
@@ -173,12 +147,10 @@ function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEmails(emailAddress);
 
-    // Polling снижен с 5с → 30с.
-    // Теперь это только fallback на случай потери WS-соединения.
-    // Основная доставка — через WebSocket (мгновенно).
+    // Polling як fallback якщо WS відвалився
     const intervalId = setInterval(() => {
       fetchEmails(emailAddress.toLowerCase());
-    }, 30000); // <-- было 5000, стало 30000
+    }, 30000);
     return () => clearInterval(intervalId);
   }, [emailAddress]);
 
@@ -202,7 +174,7 @@ function App() {
         theme={theme}
         setTheme={setTheme}
         DeleteInbox={handleDeleteInbox}
-        wsConnected={wsConnected} // <-- передаём статус WS в header
+        wsConnected={wsConnected}
       />
       <EmailSection
         emailAddress={displayAddress ?? emailAddress}

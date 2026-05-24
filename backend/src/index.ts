@@ -1,14 +1,15 @@
 // backend/src/index.ts
-// Изменения относительно оригинала:
-//   1. Создан httpServer поверх Express app (нужен для Socket.io)
-//   2. Инициализирован io = new Server(httpServer, ...)
-//   3. Добавлен обработчик SUBSCRIBE_MAILBOX — клиент подписывается на комнату
-//   4. io экспортируется для использования в queueWorker.ts
-//   5. app.listen() → httpServer.listen()
+// Точка входу Express-сервера.
+//
+// Відповідальності:
+//   - HTTP API (/inbox, /emails, /mailgun)
+//   - WebSocket сервер (Socket.io) для push-доставки листів
+//   - Health check (/health)
+//   - 404 та error handlers
 
 import express, { Request, Response, NextFunction } from "express";
-import { createServer } from "http"; // <-- НОВОЕ
-import { Server } from "socket.io"; // <-- НОВОЕ
+import { createServer } from "http";
+import { Server } from "socket.io";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
@@ -19,16 +20,18 @@ import inboxRouter from "./routes/inbox";
 import emailsRouter from "./routes/emails";
 import mailgunRouter from "./routes/mailgun";
 import { initIo } from "./socket";
+
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
-const httpServer = createServer(app); // <-- НОВОЕ
+const httpServer = createServer(app);
+const PORT = process.env.PORT || 4000;
 
-// ── Socket.io ────────────────────────────────────────────
-// Создаём WebSocket-сервер поверх того же HTTP-порта.
-// CORS разрешает фронтенд (Vite на 5173 и Render).
+// ── Socket.io ─────────────────────────────────────────────
+// WebSocket-сервер поверх того самого HTTP-порту.
+// Клієнт підписується на кімнату "mailbox:<address>" через SUBSCRIBE_MAILBOX.
+// Worker публікує NEW_EMAIL в Redis → initIo отримує і робить emit.
 export const io = new Server(httpServer, {
-  // <-- НОВОЕ (экспорт!)
   cors: {
     origin: [
       "http://localhost:5173",
@@ -37,77 +40,83 @@ export const io = new Server(httpServer, {
     ],
     credentials: true,
   },
-  // Fallback на long-polling для сред без WS (некоторые хостинги)
   transports: ["websocket", "polling"],
 });
+
+// Реєструємо io в синглтоні socket.ts до першого підключення
 initIo(io);
-// Клиент подписывается на обновления своего mailbox:
-//   emit("SUBSCRIBE_MAILBOX", "james123@tempmailbox.uk")
-//   → socket.join("mailbox:james123@tempmailbox.uk")
-// Воркер потом делает: io.to("mailbox:...").emit("NEW_EMAIL", data)
+
 io.on("connection", (socket) => {
-  console.log(`[WS] Client connected: ${socket.id}`);
+  console.log(
+    `[ws] + Client connected | id=${socket.id} | total=${io.engine.clientsCount}`,
+  );
 
   socket.on("SUBSCRIBE_MAILBOX", (address: string) => {
-    // Базовая валидация — не пускаем мусор в имена комнат
-    if (typeof address !== "string" || address.length > 320) return;
+    if (typeof address !== "string" || address.length > 320) {
+      console.warn(`[ws] ⚠ Invalid mailbox address from ${socket.id}`);
+      return;
+    }
     socket.join(`mailbox:${address.toLowerCase()}`);
-    console.log(`[WS] ${socket.id} subscribed to mailbox:${address}`);
+    console.log(
+      `[ws] ✓ Subscribed | id=${socket.id} | mailbox=${address.toLowerCase()}`,
+    );
   });
 
-  socket.on("disconnect", () => {
-    console.log(`[WS] Client disconnected: ${socket.id}`);
+  socket.on("disconnect", (reason) => {
+    console.log(
+      `[ws] - Client disconnected | id=${socket.id} | reason=${reason} | total=${io.engine.clientsCount}`,
+    );
   });
 });
 
 // ── Middleware ────────────────────────────────────────────
-const PORT = process.env.PORT || 4000;
-const allowed = [
+const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://tempmail-front.onrender.com",
 ];
 
 app.use(helmet());
-app.use(cors({ origin: allowed }));
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
-// ── Роуты ─────────────────────────────────────────────────
+// ── Routes ────────────────────────────────────────────────
 app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
 app.use("/emails", emailsRouter);
 
 // ── Health Check ──────────────────────────────────────────
+// Перевіряє підключення до PostgreSQL, Redis та стан WebSocket.
 app.get("/health", async (req: Request, res: Response) => {
   try {
     await pool.query("SELECT 1");
     await redis.ping();
     res.json({
       status: "ok",
-      database: "connected ✅",
-      redis: "connected ✅",
-      websocket: `clients: ${io.engine.clientsCount}`, // <-- НОВОЕ: видим кол-во WS клиентов
+      database: "connected",
+      redis: "connected",
+      wsClients: io.engine.clientsCount,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    console.error("[health] ❌ Health check failed:", (error as Error).message);
     res.status(500).json({ status: "error", error: String(error) });
   }
 });
 
-// ── 404 / Error handlers ──────────────────────────────────
+// ── 404 Handler ───────────────────────────────────────────
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
+// ── Error Handler ─────────────────────────────────────────
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  console.error("[server] ❌ Unhandled error:", err.message);
   res.status(500).json({ error: "Internal Server Error" });
 });
 
-// ── Запуск ────────────────────────────────────────────────
-// ВАЖНО: httpServer.listen, НЕ app.listen — иначе Socket.io не подключится
+// ── Start ─────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server + WebSocket running on http://localhost:${PORT}`);
-  console.log(`📋 Health check: http://localhost:${PORT}/health`);
+  console.log(`[server] ✅ Running on port ${PORT}`);
 });

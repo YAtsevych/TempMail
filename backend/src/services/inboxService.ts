@@ -1,8 +1,9 @@
+// Створення та пошук інбоксів в БД
+
 import { v4 as uuidv4 } from "uuid";
 import pool from "../db";
-import { setWithTTL, get, del } from "./redisService";
 
-const INBOX_TTL = 60 * 60; // 1 час в секундах
+const INBOX_TTL = 60 * 60; // 1 година
 
 export interface Inbox {
   id: string;
@@ -14,6 +15,7 @@ export interface Inbox {
   inbox_address: string;
 }
 
+// Генеруємо людиноподібний email типу JamesSmith4231@tempmailbox.uk
 const generateAddress = (): string => {
   const firstNames = [
     "James",
@@ -101,10 +103,10 @@ const generateAddress = (): string => {
     "Flores",
   ];
 
-  const firstN = firstNames[Math.floor(Math.random() * firstNames.length)];
-  const lastN = lastNames[Math.floor(Math.random() * lastNames.length)];
+  const first = firstNames[Math.floor(Math.random() * firstNames.length)];
+  const last = lastNames[Math.floor(Math.random() * lastNames.length)];
   const num = Math.floor(Math.random() * 9999);
-  return `${firstN}${lastN}${num}@tempmailbox.uk`;
+  return `${first}${last}${num}@tempmailbox.uk`;
 };
 
 export const createInbox = async (): Promise<Inbox> => {
@@ -120,11 +122,10 @@ export const createInbox = async (): Promise<Inbox> => {
     [address, token, expiresAt, inbox_address],
   );
 
-  const inbox = result.rows[0];
-
-  return inbox;
+  return result.rows[0];
 };
 
+// Шукаємо лише активні інбокси (expires_at > зараз)
 export const getInboxByAddress = async (
   address: string,
 ): Promise<Inbox | null> => {
@@ -132,12 +133,7 @@ export const getInboxByAddress = async (
     `SELECT * FROM inboxes WHERE address = $1 AND expires_at > NOW()`,
     [address],
   );
-
-  if (result.rows.length === 0) return null;
-
-  const inbox = result.rows[0];
-
-  return inbox;
+  return result.rows[0] ?? null;
 };
 
 export const getInboxByToken = async (token: string): Promise<Inbox | null> => {
@@ -145,9 +141,7 @@ export const getInboxByToken = async (token: string): Promise<Inbox | null> => {
     `SELECT * FROM inboxes WHERE token = $1 AND expires_at > NOW()`,
     [token],
   );
-
-  if (result.rows.length === 0) return null;
-  return result.rows[0];
+  return result.rows[0] ?? null;
 };
 
 export const deleteInbox = async (address: string): Promise<void> => {

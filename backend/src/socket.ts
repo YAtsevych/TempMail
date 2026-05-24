@@ -1,38 +1,78 @@
+// backend/src/socket.ts
+// Singleton Socket.io + Redis Pub/Sub для міжпроцесної доставки подій.
+//
+// Архітектура:
+//   Worker process  →  publisher.publish("new_email", JSON)
+//                               ↓ Redis Pub/Sub
+//   index.ts        →  subscriber.on("message") → io.to(room).emit("NEW_EMAIL")
+//                               ↓ WebSocket
+//                      Браузер клієнта
+//
+// Причина розділення: Worker і Express — окремі процеси (Node.js).
+// Спільна пам'ять недоступна → Redis Pub/Sub як шина подій.
+
 import { Server } from "socket.io";
 import Redis from "ioredis";
 
-const CHANNEL = "new_email"; // имя канала Pub/Sub
+const CHANNEL = "new_email";
 
 let _io: Server | null = null;
 
+/**
+ * Ініціалізує Socket.io singleton та Redis-підписника.
+ * Викликається один раз при старті сервера (index.ts).
+ */
 export function initIo(server: Server): void {
   _io = server;
 
-  // Подписчик — отдельный Redis-клиент (ioredis требует отдельного соединения для subscribe)
   const subscriber = new Redis(
     process.env.REDIS_URL || "redis://localhost:6379",
   );
 
   subscriber.subscribe(CHANNEL, (err) => {
-    if (err) console.error("[Redis] Subscribe error:", err);
-    else console.log(`[Redis] Subscribed to channel: ${CHANNEL}`);
+    if (err) {
+      console.error("[socket] ❌ Redis subscribe failed:", err.message);
+    } else {
+      console.log(`[socket] ✅ Subscribed to Redis channel "${CHANNEL}"`);
+    }
   });
 
-  // Когда воркер публикует событие — emit в нужную комнату
   subscriber.on("message", (_channel, message) => {
     try {
       const { room, payload } = JSON.parse(message);
       _io!.to(room).emit("NEW_EMAIL", payload);
-      console.log(`[WS] Emitted NEW_EMAIL to ${room}`);
+      // Лог доставки — ключова метрика для Розділу 3
+      console.log(
+        `[socket] → NEW_EMAIL sent | room=${room} | subject="${payload.subject}"`,
+      );
     } catch (e) {
-      console.error("[Redis] Failed to parse message:", e);
+      console.error(
+        "[socket] ❌ Failed to parse Pub/Sub message:",
+        (e as Error).message,
+      );
     }
+  });
+
+  subscriber.on("error", (err) => {
+    console.error("[socket] ❌ Redis subscriber error:", err.message);
   });
 }
 
-// Публикатор — используется в воркере
+/**
+ * Створює окремий Redis-клієнт для публікації подій.
+ * Використовується у Worker процесі (queueWorker.ts).
+ * ioredis забороняє використовувати один клієнт для subscribe і publish.
+ */
 export function createPublisher(): Redis {
-  return new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+  const publisher = new Redis(
+    process.env.REDIS_URL || "redis://localhost:6379",
+  );
+
+  publisher.on("error", (err) => {
+    console.error("[socket:publisher] ❌ Redis error:", err.message);
+  });
+
+  return publisher;
 }
 
 export const PUBSUB_CHANNEL = CHANNEL;

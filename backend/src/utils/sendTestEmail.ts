@@ -1,10 +1,11 @@
-// Симулятор входящего письма через Mailgun webhook.
-// Генерирует корректную подпись HMAC-SHA256 — проходит verifyMailgunSignature.
+// Симулятор вхідного листа через Mailgun webhook
+// Генерує підпис HMAC-SHA256 — проходить verifyMailgunSignature на сервері
 //
 // Запуск:
-//   npx ts-node src/utils/sendTestEmail.ts
-//   npx ts-node src/utils/sendTestEmail.ts elephant  ← большое письмо
-//   npx ts-node src/utils/sendTestEmail.ts spam 20   ← 20 писем подряд (тест rate limit)
+//   npx ts-node src/utils/sendTestEmail.ts              ← одне mice
+//   npx ts-node src/utils/sendTestEmail.ts elephant     ← одне elephant
+//   npx ts-node src/utils/sendTestEmail.ts spam 60      ← тест rate limiter
+//   npx ts-node src/utils/sendTestEmail.ts mime_bomb 1  ← тест MIME-фільтра
 
 import crypto from "crypto";
 import dotenv from "dotenv";
@@ -16,7 +17,7 @@ const API_URL = `https://tempmail-backend-qdjs.onrender.com/mailgun/inbound`;
 const SIGNING_KEY = process.env.MAILGUN_SIGNING_KEY || "";
 const INBOX = process.env.TEST_INBOX || "test@tempmailbox.uk";
 
-// ── Генерация подписи (точно как Mailgun) ─────────────────
+// ── Генерація підпису (точно як Mailgun) ─────────────────
 function generateSignature(timestamp: string, token: string): string {
   return crypto
     .createHmac("sha256", SIGNING_KEY)
@@ -24,7 +25,7 @@ function generateSignature(timestamp: string, token: string): string {
     .digest("hex");
 }
 
-// ── Шаблоны писем ─────────────────────────────────────────
+// ── Шаблони листім ─────────────────────────────────────────
 const templates: Record<
   string,
   {

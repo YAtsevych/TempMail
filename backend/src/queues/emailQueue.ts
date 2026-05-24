@@ -1,13 +1,16 @@
+// Черга BullMQ для обробки вхідних листів
+// Підключення до Redis береться з env змінних
+
 import { Queue } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
 import { URL } from "url";
 
+// Парсимо REDIS_URL або збираємо з окремих змінних
 export function redisConnectionFromEnv(): ConnectionOptions {
   const redisUrl = process.env.REDIS_URL;
 
   if (redisUrl) {
     const u = new URL(redisUrl);
-
     const isTLS = u.protocol === "rediss:";
     const password = u.password ? decodeURIComponent(u.password) : undefined;
 
