@@ -1,5 +1,4 @@
 // Вебхук від Mailgun — точка входу для всіх вхідних листів
-
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import crypto from "crypto";
@@ -10,7 +9,7 @@ import { checkRateLimit, incrementMetric } from "../services/redisService";
 const router = Router();
 const upload = multer();
 
-// Перевіряємо підпис від Mailgun щоб не приймати підроблені запити
+// Перевіряємо підпис від Mailgun
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
   if (!key) return true; // якщо ключ не задано — пропускаємо (dev режим)
@@ -25,94 +24,149 @@ const verifyMailgunSignature = (req: Request): boolean => {
 
   return hmac === signature;
 };
-
-router.post("/inbound", upload.none(), async (req: Request, res: Response) => {
-  // IP відправника — беремо реальний, не IP Mailgun gateway
-  const senderIp =
-    (req.body?.["X-Sender-IP"] as string) ||
-    (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
-    req.ip ||
-    "0.0.0.0";
-
-  // 1-й ешелон: Token Bucket rate limiter
-  await incrementMetric("totalReceived");
-  const { allowed } = await checkRateLimit(senderIp);
-
-  if (!allowed) {
-    await incrementMetric("rateLimitedRejected");
-    return res.status(429).json({
-      success: false,
-      error: "rate_limit_exceeded",
-      retryAfterMs: 100, // при rate=10, наступний токен через ~100мс
-    });
-  }
+// Используем встроенный модуль buffer для декодирования
+const decodeMimeHeader = (header: string): string => {
+  if (!header || !header.startsWith("=?")) return header;
 
   try {
-    if (!verifyMailgunSignature(req)) {
-      console.warn(`[mailgun] ⚠ Invalid signature | ip=${senderIp}`);
-      return res
-        .status(403)
-        .json({ success: false, error: "Invalid signature" });
+    // Регулярка для извлечения base64 части из =?UTF-8?b?DATA?=
+    const match = header.match(/=\?UTF-8\?[Bb]\?([^?]+)\?=/i);
+    if (match && match[1]) {
+      return Buffer.from(match[1], "base64").toString("utf-8");
+    }
+  } catch (e) {
+    console.error("Ошибка декодирования заголовка:", e);
+  }
+  return header;
+};
+/**
+ * Маршрут обробки вхідних листів.
+ * Використовує механізм проміжних функцій (next) для покрокового проходження ешелонів захисту.
+ */
+router.post(
+  "/inbound",
+  async (req: Request, res: Response, next) => {
+    //Перевірка ліміту частоти (Token Bucket)
+    //Зчитуємо IP із заголовків, надісланих стрес-тестом. Це відбувається миттєво до парсингу тіла.
+    const senderIp =
+      (req.headers["x-sender-ip"] as string) ||
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+      req.ip ||
+      "0.0.0.0";
+
+    // Оновлюємо метрику загального обсягу вхідного трафіку
+    await incrementMetric("totalReceived");
+
+    // Викликаємо атомарний Lua-скрипт лімітера в Redis
+    const { allowed } = await checkRateLimit(senderIp);
+
+    // Якщо ліміт перевищено — жорстко відсікаємо DoS-атаку на порозі системи
+    if (!allowed) {
+      await incrementMetric("rateLimitedRejected");
+      console.log(
+        `[ratelimit] 🚫 БЛОКУВАННЯ НА ПОРОЗІ | ip=${senderIp} (Мультер не запускався)`,
+      );
+      return res.status(429).json({
+        success: false,
+        error: "rate_limit_exceeded",
+        retryAfterMs: 100, // при rate=10, наступний токен через ~100мс
+      });
     }
 
-    const recipient = req.body.recipient;
-    const sender = req.body.sender;
-    const subject = req.body.subject || null;
-    const body_text = req.body["body-plain"] || null;
-    const body_html = req.body["body-html"] || null;
-
-    // Mailgun серіалізує вкладення як JSON-рядок
-    let attachments: Array<{
-      name?: string;
-      size?: number;
-      content_type?: string;
-    }> = [];
+    // Якщо IP пройшов лімітер — передаємо керування наступній мідлварі (multer)
+    next();
+  },
+  //Парсинг тіла запиту (Multipart Form Data). Запускається ТІЛЬКИ для легітимного трафіку!
+  upload.none(),
+  async (req: Request, res: Response) => {
     try {
-      const raw = req.body.attachments;
-      if (typeof raw === "string") attachments = JSON.parse(raw);
-      else if (Array.isArray(raw)) attachments = raw;
-    } catch {
-      attachments = [];
-    }
+      // Якщо увімкнено верифікацію підпису Mailgun — перевіряємо вже після парсингу тіла
+      if (!verifyMailgunSignature(req)) {
+        console.warn(`[mailgun] ⚠ Invalid signature`);
+        return res
+          .status(403)
+          .json({ success: false, error: "Invalid signature" });
+      }
 
-    if (!recipient || !sender) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Missing recipient/sender" });
-    }
+      const recipient = req.body.recipient;
+      const sender = req.body.sender;
+      const subject = req.body.subject || null;
+      const body_text = req.body["body-plain"] || null;
+      const body_html = req.body["body-html"] || null;
+      const fromHeader = req.body["from"] || req.body.sender; // А вот это — заголовок "From: Name <email@domain.com>"
+      const decodedFrom = decodeMimeHeader(fromHeader);
 
-    // 2-й ешелон: класифікуємо лист і ставимо в чергу з пріоритетом
-    const { type: priorityClass } = classifyEmail({
-      subject,
-      body_text,
-      body_html,
-      from_address: sender,
-      attachments,
-    });
+      // Функция для парсинга email из строки "Name <email@domain.com>"
+      const extractEmail = (header: string): string => {
+        const match = header.match(/<([^>]+)>/);
+        return match ? match[1] : header;
+      };
+      const cleanSender = decodedFrom ? extractEmail(fromHeader) : sender;
+      // Десеріалізація масиву вкладень
+      let attachments: Array<{
+        name?: string;
+        size?: number;
+        content_type?: string;
+      }> = [];
+      try {
+        const raw = req.body.attachments;
+        if (typeof raw === "string") attachments = JSON.parse(raw);
+        else if (Array.isArray(raw)) attachments = raw;
+      } catch {
+        attachments = [];
+      }
 
-    const job = await emailQueue.add(
-      "newEmail",
-      {
-        inbox_address: String(recipient).toLowerCase(),
-        from_address: sender,
+      if (!recipient || !cleanSender) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Missing recipient/sender" });
+      }
+
+      //Інтелектуальна класифікація контенту (Mice vs Elephant)
+      const { type: priorityClass } = classifyEmail({
         subject,
         body_text,
         body_html,
+        from_address: cleanSender,
         attachments,
-        received_at: new Date().toISOString(),
-      },
-      { priority: getPriority(priorityClass), removeOnComplete: true },
-    );
+      });
 
-    console.log(
-      `[mailgun] ✅ Job ${job.id} | type=${priorityClass} | from=${sender} | to=${recipient}`,
-    );
+      // Передаємо IP далі у лог, щоб бачити реальну картину
+      const senderIpLog =
+        (req.headers["x-sender-ip"] as string) || req.ip || "0.0.0.0";
 
-    return res.json({ success: true, jobId: job.id, priority: priorityClass });
-  } catch (err) {
-    console.error("[mailgun] ❌ Inbound error:", (err as Error).message);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-});
+      //ДОДАВАННЯ В ЧЕРГУ BULLMQ
+      const job = await emailQueue.add(
+        "newEmail",
+        {
+          inbox_address: String(recipient).toLowerCase(),
+          from_address: cleanSender,
+          subject,
+          body_text,
+          body_html,
+          attachments,
+          received_at: new Date().toISOString(),
+        },
+        {
+          priority: getPriority(priorityClass),
+          removeOnComplete: true,
+        },
+      );
+
+      console.log(
+        `[mailgun] ✅ Job ${job.id} | type=${priorityClass} | from=${cleanSender} | ip=${senderIpLog}`,
+      );
+
+      return res.json({
+        success: true,
+        jobId: job.id,
+        priority: priorityClass,
+      });
+    } catch (err) {
+      console.error("[mailgun] ❌ Inbound error:", (err as Error).message);
+      return res.status(500).json({ success: false, error: "Server error" });
+    }
+  },
+);
 
 export default router;

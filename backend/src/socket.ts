@@ -41,7 +41,7 @@ export function initIo(server: Server): void {
     try {
       const { room, payload } = JSON.parse(message);
       _io!.to(room).emit("NEW_EMAIL", payload);
-      // Лог доставки — ключова метрика для Розділу 3
+      // Лог доставки
       console.log(
         `[socket] → NEW_EMAIL sent | room=${room} | subject="${payload.subject}"`,
       );

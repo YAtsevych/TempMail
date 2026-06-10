@@ -106,7 +106,7 @@ function App() {
       const data = await response.json();
       setLetters(data.data ?? []);
     } catch {
-      // тихо ігноруємо — наступний polling спробує знову
+      // ігноруємо — наступний polling спробує знову
     }
   };
 

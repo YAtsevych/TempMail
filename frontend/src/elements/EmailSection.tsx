@@ -34,15 +34,28 @@ function EmailSection({
           bg-[var(--color-bg-card)] card-md flex items-start justify-between flex-col sm:flex-row sm:items-center`}
         >
           <div>
-            <h3 className="textGray text-[14px] text-[var(--color-text)]">
-              Your temporary email address
-            </h3>
-            <p
-              style={{ fontFamily: "Geist Mono" }}
-              className={`${theme === "dark" ? "dark" : "light"} text-[var(--color-text)] text-[18px] md:text-[20px] font-[500] tracking-[-1px]`}
-            >
-              {emailAddress}
-            </p>
+            {emailAddress === null ? (
+              <p
+                style={{ fontFamily: "Geist Mono" }}
+                className={`${theme === "dark" ? "dark" : "light"} text-[var(--color-text)] text-[18px] md:text-[20px] font-[500] tracking-[-1px]`}
+              >
+                Generating address...
+              </p>
+            ) : (
+              <>
+                <h3 className="textGray text-[14px] text-[var(--color-text)]">
+                  Your temporary email address
+                </h3>
+                <p
+                  style={{ fontFamily: "Geist Mono" }}
+                  className={`${theme === "dark" ? "dark" : "light"} text-[var(--color-text)] text-[18px] md:text-[20px] font-[500] tracking-[-1px]`}
+                >
+                  {emailAddress === null
+                    ? "Generating address..."
+                    : emailAddress}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="flex flex-row w-full sm:w-auto">

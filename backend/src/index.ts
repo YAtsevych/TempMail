@@ -111,7 +111,6 @@ app.get("/health", async (req: Request, res: Response) => {
 
 // ── Metrics ───────────────────────────────────────────────
 // Повертає всі лічильники системи для Розділу 3 диплому.
-// Використовуй після стрес-тесту щоб зняти дані для таблиць.
 app.get("/api/metrics", async (req: Request, res: Response) => {
   try {
     const [counters, jobCounts, dbResult] = await Promise.all([
