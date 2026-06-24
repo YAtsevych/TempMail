@@ -23,7 +23,7 @@ import { initIo } from "./socket";
 
 //Імпорти для метрик
 import { getMetricCounters } from "./services/redisService";
-import { emailQueue } from "./queues/emailQueue";
+import { miceQueue, elephantQueue } from "./queues/emailQueue";
 
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
@@ -110,12 +110,15 @@ app.get("/health", async (req: Request, res: Response) => {
 });
 
 // ── Metrics ───────────────────────────────────────────────
-// Повертає всі лічильники системи для Розділу 3 диплому.
+// Повертає всі лічильники системи.
+
 app.get("/api/metrics", async (req: Request, res: Response) => {
   try {
-    const [counters, jobCounts, dbResult] = await Promise.all([
+    // Тепер чітко приймаємо 4 змінні на 4 проміси
+    const [counters, miceCounts, elephantCounts, dbResult] = await Promise.all([
       getMetricCounters(),
-      emailQueue.getJobCounts("waiting", "active", "completed", "failed"),
+      miceQueue.getJobCounts("waiting", "active", "completed", "failed"),
+      elephantQueue.getJobCounts("waiting", "active", "completed", "failed"),
       pool.query(
         "SELECT COUNT(*)::int AS count FROM inboxes WHERE expires_at > NOW()",
       ),
@@ -130,7 +133,10 @@ app.get("/api/metrics", async (req: Request, res: Response) => {
         rateLimitedRejected: counters.rateLimitedRejected ?? 0,
         mimeRejected: counters.mimeRejected ?? 0,
       },
-      queue: jobCounts,
+      queues: {
+        mice: miceCounts,
+        elephant: elephantCounts,
+      },
       system: {
         activeMailboxes: dbResult.rows[0]?.count ?? 0,
         wsClients: io.engine.clientsCount,

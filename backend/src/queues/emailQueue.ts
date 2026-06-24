@@ -29,6 +29,13 @@ export function redisConnectionFromEnv(): ConnectionOptions {
   };
 }
 
-export const emailQueue = new Queue("emailQueue", {
+/////////////////////////////////////////////////////////////////////////////////
+
+//Окремы черги для Слонів та Мишей
+
+export const miceQueue = new Queue("miceQueue", {
+  connection: redisConnectionFromEnv(),
+});
+export const elephantQueue = new Queue("elephantQueue", {
   connection: redisConnectionFromEnv(),
 });

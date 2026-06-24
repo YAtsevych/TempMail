@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 type Theme = "dark" | "light";
 
 export type Letter = {
@@ -68,9 +69,7 @@ function InboxSection({
                     onClick={() => setOpenedLetter(letter)}
                     className={`${theme === "dark" ? "dark" : "light"} bg-[var(--color-muted)] hover:bg-[var(--color-muted-hover)] cursor-pointer border-b [border-bottom-color:var(--color-border)] w-full flex flex-row p-[16px]`}
                   >
-                    <div className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center bg-[lab(57.0196%_18.2414_-77.6137)]">
-                      <span>E</span>
-                    </div>
+                    <Avatar fromAddress={letter.from_address} />
                     <div className="pl-4 flex-1 min-w-0">
                       <div className="w-full flex flex-row justify-between items-center">
                         <h3
@@ -161,9 +160,7 @@ function InboxSection({
                   </h2>
 
                   <div className="flex flex-row min-h-0 flex-shrink-0">
-                    <div className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center bg-[lab(57.0196%_18.2414_-77.6137)]">
-                      <span>E</span>
-                    </div>
+                    <Avatar fromAddress={openedLetter.from_address} />
                     <div className="pl-4 flex-1 min-w-0">
                       <div className="w-full flex flex-row gap-2 items-center">
                         <h3
@@ -185,7 +182,9 @@ function InboxSection({
                   </div>
                 </div>
 
-                <div className="flex-1 bg-white relative w-full">
+                <div
+                  className={`${theme === "dark" ? "dark" : "light"} flex-1  relative w-full`}
+                >
                   {/* Рендеримо HTML листа в ізольованому iframe */}
                   <iframe
                     srcDoc={`
@@ -194,6 +193,8 @@ function InboxSection({
                           color: ${theme === "dark" ? "#E5E7EB" : "#111827"} !important;
                         }
                         body { background-color: transparent !important; margin: 0; padding: 0; }
+                        td{background-color: ${theme === "dark" ? "#111827" : "#ffffff"}}
+                        div{background-color: ${theme === "dark" ? "#111827" : "#ffffff"} !important}
                       </style>
                       ${openedLetter.body_html}
                     `}
@@ -259,4 +260,75 @@ const formatEmailDate = (dateString: string, locale = "en-US") => {
     hour: "numeric",
     minute: "2-digit",
   });
+};
+
+interface AvatarProps {
+  fromAddress?: string;
+}
+
+// Палитра мягких, но контрастных цветов (как в Gmail)
+const GMAIL_COLORS = [
+  "#e57373",
+  "#f06292",
+  "#ba68c8",
+  "#9575cd",
+  "#7986cb",
+  "#64b5f6",
+  "#4fc3f7",
+  "#4dd0e1",
+  "#4db6ac",
+  "#81c784",
+  "#aed581",
+  "#ff8a65",
+  "#d4e157",
+  "#ffd54f",
+  "#ffb74d",
+];
+
+// Функция генерации стабильного цвета на основе строки
+const getAvatarColor = (email: string): string => {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    // Побитовый сдвиг для создания уникального числа из строки
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Берем остаток от деления, чтобы индекс не вышел за пределы массива
+  const index = Math.abs(hash) % GMAIL_COLORS.length;
+  return GMAIL_COLORS[index];
+};
+
+export const Avatar: React.FC<AvatarProps> = ({ fromAddress }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!fromAddress) {
+    return <div className="flex shrink-0 w-10 h-10 rounded-full bg-gray-300" />;
+  }
+
+  const cleanEmail = fromAddress.toLowerCase().trim();
+  const domain = cleanEmail.includes("@") ? cleanEmail.split("@")[1] : null;
+  const letter = cleanEmail.charAt(0).toUpperCase();
+
+  if (!imgError && domain) {
+    const logoUrl = `https://logo.clearbit.com/${domain}`;
+    return (
+      <img
+        src={logoUrl}
+        alt={letter}
+        onError={() => setImgError(true)}
+        className="flex shrink-0 w-10 h-10 rounded-full object-cover bg-white"
+      />
+    );
+  }
+
+  // Вычисляем стабильный цвет для конкретного email
+  const backgroundColor = getAvatarColor(cleanEmail);
+
+  return (
+    <div
+      className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center text-white font-[600] text-[16px]"
+      style={{ backgroundColor }} // Применяем вычисленный цвет через style
+    >
+      <span>{letter}</span>
+    </div>
+  );
 };

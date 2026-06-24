@@ -42,9 +42,9 @@ export function initIo(server: Server): void {
       const { room, payload } = JSON.parse(message);
       _io!.to(room).emit("NEW_EMAIL", payload);
       // Лог доставки
-      console.log(
-        `[socket] → NEW_EMAIL sent | room=${room} | subject="${payload.subject}"`,
-      );
+      // console.log(
+      //   `[socket] → NEW_EMAIL sent | room=${room} | subject="${payload.subject}"`,
+      // );
     } catch (e) {
       console.error(
         "[socket] ❌ Failed to parse Pub/Sub message:",
