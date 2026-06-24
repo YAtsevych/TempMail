@@ -20,17 +20,39 @@ import inboxRouter from "./routes/inbox";
 import emailsRouter from "./routes/emails";
 import mailgunRouter from "./routes/mailgun";
 import { initIo } from "./socket";
-
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { ExpressAdapter } from "@bull-board/express";
 //Імпорти для метрик
 import { getMetricCounters } from "./services/redisService";
 import { miceQueue, elephantQueue } from "./queues/emailQueue";
-
+import basicAuth from "express-basic-auth";
 dotenv.config({ path: path.join(__dirname, "../.env") });
+
+// 1. Створюємо адаптер для Express
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath("/admin/queues");
+// 2. Ініціалізуємо Bull-Board (ВИПРАВЛЕНО: передаємо черги через кому + додаємо serverAdapter)
+createBullBoard({
+  queues: [new BullMQAdapter(miceQueue), new BullMQAdapter(elephantQueue)],
+  serverAdapter: serverAdapter,
+});
 
 const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 4000;
 
+app.use(
+  "/admin/queues",
+  basicAuth({
+    users: {
+      [process.env.ADMIN_USER || "DISABLED_USER_" + crypto.randomUUID()]:
+        process.env.ADMIN_PASS || "DISABLED_PASSWORD_" + crypto.randomUUID(),
+    },
+    challenge: true, // Змушує браузер показати вікно логіна
+  }),
+  serverAdapter.getRouter(),
+);
 // ── Socket.io ─────────────────────────────────────────────
 // WebSocket-сервер поверх того самого HTTP-порту.
 // Клієнт підписується на кімнату "mailbox:<address>" через SUBSCRIBE_MAILBOX.
