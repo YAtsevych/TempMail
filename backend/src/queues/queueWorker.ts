@@ -30,7 +30,7 @@ const redisElephant = new Redis({
   retryStrategy: (times) => Math.min(times * 200, 3000),
   commandTimeout: 5000,
 });
-const redisWorker = new Redis({
+export const redisWorker = new Redis({
   ...redisOpts,
   maxRetriesPerRequest: null,
   retryStrategy: (times) => Math.min(times * 200, 3000),
@@ -155,8 +155,8 @@ async function saveEmailsBulk(batch: any[]): Promise<string[]> {
       $7::text[],
       $8::timestamp[], 
       $9::timestamp[]
-    ) AS input_data
-    WHERE input_data.column2 IN (SELECT address FROM inboxes)
+    ) AS input_data(id, inbox_address, from_address, subject, body_text, body_html, confirmation_code, expires_at, created_at)
+    WHERE input_data.inbox_address IN (SELECT address FROM inboxes)
     ON CONFLICT (id) DO NOTHING
     RETURNING id;
   `;

@@ -28,7 +28,7 @@ import { getMetricCounters } from "./services/redisService";
 import { miceQueue, elephantQueue } from "./queues/emailQueue";
 import basicAuth from "express-basic-auth";
 dotenv.config({ path: path.join(__dirname, "../.env") });
-
+import { redisWorker } from "./queues/queueWorker";
 // 1. Створюємо адаптер для Express
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/admin/queues");
@@ -108,6 +108,29 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
 // ── Routes ────────────────────────────────────────────────
+app.get(
+  "/admin/cleanRedis",
+  basicAuth({
+    users: {
+      [process.env.ADMIN_USER || "DISABLED_USER_" + crypto.randomUUID()]:
+        process.env.ADMIN_PASS || "DISABLED_PASSWORD_" + crypto.randomUUID(),
+    },
+    challenge: true,
+  }),
+  async (req, res) => {
+    try {
+      console.warn("⚠️ [OPS] Очищення Redis через браузерну адмінку!");
+
+      // redisWorker має бути імпортований або доступний у цій області видимості
+      await redisWorker.del("buffer:mice", "buffer:elephant");
+
+      res.send("<h1>✅ Буфери Redis успішно очищені!</h1>");
+    } catch (err: any) {
+      console.error("❌ Помилка очищення Redis:", err.message);
+      res.status(500).send("<h1>❌ Помилка сервера</h1>");
+    }
+  },
+);
 app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
 app.use("/emails", emailsRouter);
