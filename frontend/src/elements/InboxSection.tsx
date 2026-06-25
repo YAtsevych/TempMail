@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
 type Theme = "dark" | "light";
 
 export type Letter = {
@@ -35,10 +36,53 @@ function InboxSection({
     ? { filter: "invert(1) hue-rotate(180deg)" }
     : {};
   // Возвращаем картинки в нормальное состояние внутри письма
-  const imageInvertFix = isDark
-    ? `<style>img, picture, video, .image { filter: invert(1) hue-rotate(180deg) !important; }</style>`
-    : "";
+  const useWindowWidth = () => {
+    // Инициализируем стейт текущей шириной
+    const [width, setWidth] = useState(window.innerWidth);
 
+    useEffect(() => {
+      // Функция обновления стейта
+      const handleResize = () => setWidth(window.innerWidth);
+
+      // Подписываемся на событие изменения размера окна
+      window.addEventListener("resize", handleResize);
+
+      // Обязательно отписываемся при уничтожении компонента, чтобы избежать утечек памяти
+      return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    return width;
+  };
+  const screenWidth = useWindowWidth();
+
+  const baseStyleFix = `
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { 
+      max-width: ${screenWidth - 32}px !important; 
+      box-sizing: border-box !important; 
+       
+
+    }
+    body { 
+      
+      word-wrap: break-word; 
+      /* Убиваем системные скроллы внутри iframe */
+      -ms-overflow-style: none; 
+      scrollbar-width: none; 
+    }
+    body::-webkit-scrollbar { 
+      display: none; 
+    }
+    table, th, td, div { 
+      min-width: 0 !important; 
+      
+    }
+    img { 
+      height: auto !important; 
+    }
+  </style>
+`;
   return (
     <div
       style={{ fontFamily: 'Geist, "Geist Fallback"' }}
@@ -113,7 +157,7 @@ function InboxSection({
 
         {/* Відкритий лист */}
         <section
-          className={`${!openedLetter ? "hidden lg:flex" : "flex"} lg:h-full lg:w-full card-md lg:flex flex-1 lg:border-[var(--color-border)] lg:border lg:shrink-0`}
+          className={`${!openedLetter ? "hidden lg:flex" : "flex"} max-w-[${screenWidth}] lg:h-full lg:w-full card-md lg:flex flex-1 lg:border-[var(--color-border)] lg:border lg:shrink-0`}
         >
           <div
             className={`${theme === "dark" ? "dark" : "light"} w-full h-full overflow-y-auto lg:p-6`}
@@ -181,10 +225,7 @@ function InboxSection({
                       <div className="w-full flex flex-row gap-2 items-center">
                         <h3
                           className={`${theme === "dark" ? "dark" : "light"} text-[16px] font-[600] text-[var(--color-text)]`}
-                        >
-                          {openedLetter.from_name ||
-                            formatSenderName(openedLetter.from_address)}
-                        </h3>
+                        ></h3>
                         <p
                           className={`${theme === "dark" ? "dark" : "light"} text-[var(--color-text)]`}
                         >
@@ -197,42 +238,72 @@ function InboxSection({
                     </div>
                   </div>
                 </div>
-
+                {/* srcDoc=
+                {`
+                      <style>
+                        body, p, h1, h2, h3, h4, h5, h6, span, div, td, li, a {
+                          color: ${theme === "dark" ? "#E5E7EB" : "#111827"} !important;
+                        }
+                        body { background-color: transparent !important; margin: 0; padding: 0; }
+                        td{background-color: ${theme === "dark" ? "#111827" : "#ffffff"}}
+                        div{background-color: ${theme === "dark" ? "#111827" : "#ffffff"} !important}
+                      </style>
+                      ${openedLetter.body_html}
+                      const isDark = theme === "dark";
+  // Инвертируем весь iframe (белый станет черным)
+  const iframeFilterStyle = isDark
+    ? { filter: "invert(1) hue-rotate(180deg)" }
+    : {};
+  // Возвращаем картинки в нормальное состояние внутри письма
+  const imageInvertFix = isDark
+    ? `<style>img, picture, video, .image { filter: invert(1) hue-rotate(180deg) !important; }</style>`
+    : "";
+                    `} */}
                 <div
-                  className={`${isDark ? "dark" : "light"} flex-1 relative w-full min-w-0 overflow-hidden`}
+                  className={`${isDark ? "dark" : "light"} flex-1 relative w-full min-w-0 `}
                 >
                   <iframe
                     style={iframeFilterStyle}
                     srcDoc={`
-      ${imageInvertFix}
+                      
+                    ${baseStyleFix}
+
       
-      ${openedLetter.body_html || openedLetter.body_text || "Пустое письмо"}
-    `}
+                        ${openedLetter.body_html || openedLetter.body_text || "Пустое письмо"}
+                      `}
                     className="w-full border-none block"
                     title="Email content"
                     sandbox="allow-same-origin allow-popups"
                     onLoad={(e) => {
                       const iframe = e.currentTarget;
-                      if (iframe.contentWindow) {
-                        iframe.style.height = "0px";
-                        const body = iframe.contentWindow.document.body;
+                      const win = iframe.contentWindow;
+                      if (!win) return;
+                      const body = win.document.body;
 
-                        // Используем scrollHeight, но добавляем запас для возможных подгрузок
+                      const updateHeight = () => {
+                        // Пересчитываем высоту на основе реального контента
                         const newHeight = body.scrollHeight + 30;
                         iframe.style.height = `${newHeight}px`;
+                      };
 
-                        // Опционально: настраиваем MutationObserver, чтобы пересчитывать высоту,
-                        // если письмо динамически меняет размер (например, при загрузке картинок)
-                        const observer = new MutationObserver(() => {
-                          iframe.style.height = "0px";
-                          iframe.style.height = `${body.scrollHeight + 30}px`;
-                        });
-                        observer.observe(body, {
-                          childList: true,
-                          subtree: true,
-                          attributes: true,
-                        });
-                      }
+                      // 1. Первичный замер при загрузке
+                      updateHeight();
+
+                      // 2. Следим за ресайзом окна (когда ширина сужается и текст ползет вниз)
+                      const resizeObserver = new ResizeObserver(() => {
+                        updateHeight();
+                      });
+                      resizeObserver.observe(body);
+
+                      // 3. Оставляем слежку за отложенной загрузкой картинок
+                      const mutationObserver = new MutationObserver(() => {
+                        updateHeight();
+                      });
+                      mutationObserver.observe(body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                      });
                     }}
                   />
                 </div>
@@ -266,14 +337,6 @@ const timeAgo = (dateString: string): string => {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return new Date(dateMs).toLocaleDateString("en-US");
-};
-
-// Витягує назву сервісу з email адреси відправника
-const formatSenderName = (fromAddress: string) => {
-  if (!fromAddress || !fromAddress.includes("@")) return "Unknown";
-  const domain = fromAddress.split("@")[1];
-  const name = domain.split(".")[0];
-  return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
 // Форматує дату листа для відображення

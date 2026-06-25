@@ -118,7 +118,7 @@ async function processEmail(job: Job<EmailJobData>) {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 //Функція збереження у БД за допомогою UNNEST та при ON CONFLICT (id) DO NOTHING;
-async function saveEmailsBulk(batch: any[]) {
+async function saveEmailsBulk(batch: any[]): Promise<string[]> {
   const ids: string[] = [];
   const inboxAddresses: string[] = [];
   const fromAddresses: string[] = [];
@@ -141,6 +141,7 @@ async function saveEmailsBulk(batch: any[]) {
     createdAtDates.push(row.created_at);
   }
 
+  //
   const sql = `
     INSERT INTO emails 
       (id, inbox_address, from_address, subject, body_text, body_html, confirmation_code, expires_at, created_at)
@@ -154,10 +155,12 @@ async function saveEmailsBulk(batch: any[]) {
       $7::text[],
       $8::timestamp[], 
       $9::timestamp[]
-    ) ON CONFLICT (id) DO NOTHING;
+    ) AS input_data
+    WHERE input_data.column2 IN (SELECT address FROM inboxes)
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id;
   `;
 
-  // 4. Передаемо рівно 9 аргументів в pool.query
   const values = [
     ids,
     inboxAddresses,
@@ -170,14 +173,15 @@ async function saveEmailsBulk(batch: any[]) {
     createdAtDates,
   ];
 
-  // Виділяємо клієнта з пулу вручну
   const client = await pool.connect();
   try {
-    // Ставимо таймаут 3 секунди, щоб флешер не завис, якщо база затупить
     await client.query("SET statement_timeout = 3000;");
-    await client.query(sql, values);
+    const res = await client.query(sql, values);
+
+    // Возвращаем массив UUID успешно созданных писем
+    return (res.rows || []).map((row) => row.id);
   } finally {
-    client.release(); // Обов'язково повертаємо коннект в пул!
+    client.release();
   }
 }
 
@@ -213,7 +217,6 @@ function buildSocketPayload(rec: any) {
 
 //Функція Флешера. Бере пачку листів, додає в базу робит публікацію у WebSocket
 async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
-  // Захист від накладання тактів (якщо saveEmailsBulk триває довше, ніж timeoutMs)
   if (isFlushing[type]) {
     setTimeout(
       () => startFlasher(type, redisClient),
@@ -225,7 +228,6 @@ async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
   isFlushing[type] = true;
 
   try {
-    // Крок 1: АТОМАРНИЙ ЗРІЗ (Тільки 1 процес у кластері забере цей батч, інші його не побачать)
     const rawBatch = (await redisClient.eval(
       atomicPopScript,
       1,
@@ -237,11 +239,20 @@ async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
       const parsedBatch = rawBatch.map((s) => JSON.parse(s));
 
       try {
-        // Крок 2: Спроба запису в PostgreSQL
-        await saveEmailsBulk(parsedBatch);
+        // Получаем точный список UUID, которые засинкались в СУБД
+        const savedIds = await saveEmailsBulk(parsedBatch);
+        const allowedIdsSet = new Set(savedIds);
 
-        // Крок 3: Асинхронний пуш у сокети після успішної бази
+        if (savedIds.length < parsedBatch.length) {
+          console.warn(
+            `[flasher:${type}] 🧹 SQL-Фильтр отсек ${parsedBatch.length - savedIds.length} писем (инбокс не существует или дубликат id).`,
+          );
+        }
+
+        // Крок 3: Пушим в сокеты строго по совпадению emailId
         parsedBatch.forEach((rec) => {
+          if (!allowedIdsSet.has(rec.emailId)) return; // Теперь это абсолютно безопасно!
+
           publisher
             .publish(
               PUBSUB_CHANNEL,
@@ -255,16 +266,11 @@ async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
             );
         });
       } catch (dbErr) {
-        // Крок 4: ВІДКАТ ТРАНЗАКЦІЇ ПРИ ПАДІННІ БД
-        // База лежить — розгортаємо масив назад (reverse) і пушимо в ПОЧАТОК черги (LPUSH)
-        // Порядок листів для користувача не порушується!
         console.error(
           `[flasher:${type}] 🚨 Помилка СУБД. Повертаємо батч назад у Redis buffer.`,
         );
-
         await redisClient.lpush(`buffer:${type}`, ...rawBatch.reverse());
-
-        throw dbErr; // Кидаємо вище, щоб зафіксувати у загальний лог такту
+        throw dbErr;
       }
     }
   } catch (err) {
@@ -273,7 +279,6 @@ async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
       (err as Error).message,
     );
   } finally {
-    // Знімаємо блокування і плануємо наступний такт за будь-яких обставин
     isFlushing[type] = false;
     setTimeout(
       () => startFlasher(type, redisClient),
@@ -281,7 +286,6 @@ async function startFlasher(type: "mice" | "elephant", redisClient: Redis) {
     );
   }
 }
-
 //Запуск Воркерів
 const miceWorker = new Worker("miceQueue", processEmail, {
   connection: redisConnectionFromEnv(),
