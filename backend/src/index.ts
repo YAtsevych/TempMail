@@ -111,7 +111,7 @@ app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 app.use("/mailgun", mailgunRouter);
 app.use("/inbox", inboxRouter);
 app.use("/emails", emailsRouter);
-
+app.set("trust proxy", 1);
 // ── Health Check ──────────────────────────────────────────
 // Перевіряє підключення до PostgreSQL, Redis та стан WebSocket.
 app.get("/health", async (req: Request, res: Response) => {

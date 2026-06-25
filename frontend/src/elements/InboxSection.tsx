@@ -28,12 +28,23 @@ function InboxSection({
 }: InboxProps) {
   const letterList = Array.isArray(letters) ? letters : [];
   console.log(letters);
+  // Добавь эти переменные перед return твоего компонента:
+  const isDark = theme === "dark";
+  // Инвертируем весь iframe (белый станет черным)
+  const iframeFilterStyle = isDark
+    ? { filter: "invert(1) hue-rotate(180deg)" }
+    : {};
+  // Возвращаем картинки в нормальное состояние внутри письма
+  const imageInvertFix = isDark
+    ? `<style>img, picture, video, .image { filter: invert(1) hue-rotate(180deg) !important; }</style>`
+    : "";
+
   return (
     <div
       style={{ fontFamily: 'Geist, "Geist Fallback"' }}
       className="flex w-full h-full min-h-0 pb-4 md:px-6 lg:px-8 xl:px-[152px] flex justify-center"
     >
-      <div className="flex w-full h-full min-h-0 lg:items-center lg:justify-center max-w-7xl">
+      <div className="flex w-full h-full min-h-0 lg:items-center lg:justify-center max-w-7xl ">
         {/* Список листів */}
         <section
           className={`${openedLetter ? "hidden lg:flex" : "flex"} h-full min-h-0 w-full lg:mr-4 card-md md:shrink-0 lg:w-[380px]`}
@@ -72,22 +83,25 @@ function InboxSection({
                     <Avatar fromAddress={letter.from_address} />
                     <div className="pl-4 flex-1 min-w-0">
                       <div className="w-full flex flex-row justify-between items-center">
+                        {/* Добавлен truncate. Важно: для соседа (timeAgo) добавлен whitespace-nowrap и shrink-0, чтобы дата не сжималась */}
                         <h3
-                          className={`${theme === "dark" ? "dark" : "light"} text-[14px] font-[600] text-[var(--color-text)]`}
+                          className={`${theme === "dark" ? "dark" : "light"} text-[14px] font-[600] text-[var(--color-text)] truncate mr-2`}
                         >
                           {letter.from_address}
                         </h3>
-                        <p className="textGray text-[var(--color-text)] text-[12px]">
+                        <p className="textGray text-[var(--color-text)] text-[12px] whitespace-nowrap shrink-0">
                           {timeAgo(letter.created_at)}
                         </p>
                       </div>
-                      <div className="textGray text-[var(--color-text)] text-[14px]">
-                        <p>{letter.subject}</p>
+
+                      {/* Добавлен truncate, убран лишний тег <p> */}
+                      <div className="textGray text-[var(--color-text)] text-[14px] truncate">
+                        {letter.subject || "(Без темы)"}
                       </div>
-                      <div className="textGray text-[var(--color-text)] text-[12px] overflow-hidden">
-                        <p className="h-[18px] overflow-hidden">
-                          {letter.body_text}
-                        </p>
+
+                      {/* Добавлен truncate, убран костыль с фиксированной высотой */}
+                      <div className="textGray text-[var(--color-text)] text-[12px] truncate">
+                        {letter.body_text}
                       </div>
                     </div>
                   </div>
@@ -125,7 +139,9 @@ function InboxSection({
               </div>
             ) : (
               <div className="flex flex-col h-full overflow-y-auto relative px-4">
-                <div className="flex-shrink-0 md:p-6 border-b">
+                <div
+                  className={`${theme === "dark" ? "dark" : "light border-b"} flex-shrink-0 md:p-6 `}
+                >
                   <button
                     onClick={() => setOpenedLetter(null)}
                     className={`${theme === "dark" ? "dark" : "light"} text-[var(--color-text)] mt-4 flex flex-row justify-center items-center cursor-pointer lg:hidden`}
@@ -183,21 +199,15 @@ function InboxSection({
                 </div>
 
                 <div
-                  className={`${theme === "dark" ? "dark" : "light"} flex-1  relative w-full`}
+                  className={`${isDark ? "dark" : "light"} flex-1 relative w-full min-w-0 overflow-hidden`}
                 >
-                  {/* Рендеримо HTML листа в ізольованому iframe */}
                   <iframe
+                    style={iframeFilterStyle}
                     srcDoc={`
-                      <style>
-                        body, p, h1, h2, h3, h4, h5, h6, span, div, td, li, a {
-                          color: ${theme === "dark" ? "#E5E7EB" : "#111827"} !important;
-                        }
-                        body { background-color: transparent !important; margin: 0; padding: 0; }
-                        td{background-color: ${theme === "dark" ? "#111827" : "#ffffff"}}
-                        div{background-color: ${theme === "dark" ? "#111827" : "#ffffff"} !important}
-                      </style>
-                      ${openedLetter.body_html}
-                    `}
+      ${imageInvertFix}
+      
+      ${openedLetter.body_html || openedLetter.body_text || "Пустое письмо"}
+    `}
                     className="w-full border-none block"
                     title="Email content"
                     sandbox="allow-same-origin allow-popups"
@@ -206,7 +216,22 @@ function InboxSection({
                       if (iframe.contentWindow) {
                         iframe.style.height = "0px";
                         const body = iframe.contentWindow.document.body;
-                        iframe.style.height = `${body.scrollHeight + 20}px`;
+
+                        // Используем scrollHeight, но добавляем запас для возможных подгрузок
+                        const newHeight = body.scrollHeight + 30;
+                        iframe.style.height = `${newHeight}px`;
+
+                        // Опционально: настраиваем MutationObserver, чтобы пересчитывать высоту,
+                        // если письмо динамически меняет размер (например, при загрузке картинок)
+                        const observer = new MutationObserver(() => {
+                          iframe.style.height = "0px";
+                          iframe.style.height = `${body.scrollHeight + 30}px`;
+                        });
+                        observer.observe(body, {
+                          childList: true,
+                          subtree: true,
+                          attributes: true,
+                        });
                       }
                     }}
                   />

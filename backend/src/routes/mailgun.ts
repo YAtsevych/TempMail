@@ -13,7 +13,18 @@ const upload = multer();
 // Перевіряємо підпис від Mailgun щоб не приймати підроблені запити
 const verifyMailgunSignature = (req: Request): boolean => {
   const key = process.env.MAILGUN_SIGNING_KEY;
-  if (!key) return true; // якщо ключ не задано — пропускаємо (dev режим)
+  if (!key) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "[mailgun] ⚠️ Внимание: Пропуск проверки подписи (dev режим)",
+      );
+      return true;
+    }
+    console.error(
+      "[mailgun] 🚨 CRITICAL: MAILGUN_SIGNING_KEY is missing in production!",
+    );
+    return false;
+  }
 
   const { timestamp, token, signature } = req.body || {};
   if (!timestamp || !token || !signature) return false;
@@ -35,11 +46,7 @@ router.post(
   async (req: Request, res: Response, next) => {
     // 1. ПЕРШИЙ ЕШЕЛОН ЗАХИСТУ: Перевірка ліміту частоти (Token Bucket)
     // Зчитуємо IP із заголовків, надісланих стрес-тестом. Це відбувається миттєво до парсингу тіла.
-    const senderIp =
-      (req.headers["x-sender-ip"] as string) ||
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
-      req.ip ||
-      "0.0.0.0";
+    const senderIp = req.ip || "0.0.0.0";
 
     // Оновлюємо метрику загального обсягу вхідного трафіку
     await incrementMetric("totalReceived");
@@ -75,7 +82,7 @@ router.post(
       }
 
       const recipient = req.body.recipient;
-      const sender = req.body.sender;
+      const sender = req.body.From || req.body.from || req.body.sender;
       const subject = req.body.subject || null;
       const body_text = req.body["body-plain"] || null;
       const body_html = req.body["body-html"] || null;
